@@ -1,192 +1,168 @@
-import html2canvas from 'html2canvas';
-import { jsPDF } from 'jspdf';
+import { Capacitor } from '@capacitor/core';
+import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
 
 const safeName = (name: string) =>
   name.replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, '_');
 
-  export const createPdfFromElement = async (
-    elementId: string,
-      title = 'تقرير المشروع'
-      ) => {
-        const element = document.getElementById(elementId);
+export const createPdfFromElement = async (
+  elementId: string,
+  title = 'تقرير المشروع'
+) => {
+  const element = document.getElementById(elementId);
 
-          if (!element) {
-              alert('لم يتم العثور على منطقة التقرير');
-                  return;
-                    }
+  if (!element) {
+    alert('لم يتم العثور على منطقة التقرير');
+    return;
+  }
 
-                      try {
-                          const clone = element.cloneNode(true) as HTMLElement;
+  try {
+    // تحميل المكتبات كسولاً (Dynamic Import) لتقليل حجم التطبيق
+    const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+      import('html2canvas'),
+      import('jspdf')
+    ]);
 
-                              // مزامنة القوائم المنسدلة
-                                  const originalSelects = element.querySelectorAll('select');
-                                      const clonedSelects = clone.querySelectorAll('select');
+    const clone = element.cloneNode(true) as HTMLElement;
 
-                                          originalSelects.forEach((select, index) => {
-                                                const clonedSelect = clonedSelects[index] as HTMLSelectElement;
+    // مزامنة القوائم المنسدلة
+    const originalSelects = element.querySelectorAll('select');
+    const clonedSelects = clone.querySelectorAll('select');
 
-                                                      if (clonedSelect) {
-                                                              const selectedText =
-                                                                        (select as HTMLSelectElement).selectedOptions[0]?.textContent || '';
+    originalSelects.forEach((select, index) => {
+      const clonedSelect = clonedSelects[index] as HTMLSelectElement;
+      if (clonedSelect) {
+        const selectedText = (select as HTMLSelectElement).selectedOptions[0]?.textContent || '';
+        const span = document.createElement('span');
+        span.textContent = selectedText;
+        span.style.display = 'inline-block';
+        span.style.padding = '6px 10px';
+        clonedSelect.replaceWith(span);
+      }
+    });
 
-                                                                                const span = document.createElement('span');
+    // مزامنة حقول الإدخال
+    const originalInputs = element.querySelectorAll('input, textarea');
+    const clonedInputs = clone.querySelectorAll('input, textarea');
 
-                                                                                        span.textContent = selectedText;
-                                                                                                span.style.display = 'inline-block';
-                                                                                                        span.style.padding = '6px 10px';
+    originalInputs.forEach((input, index) => {
+      if (clonedInputs[index]) {
+        const original = input as HTMLInputElement | HTMLTextAreaElement;
+        const cloned = clonedInputs[index] as HTMLInputElement | HTMLTextAreaElement;
+        cloned.value = original.value;
+      }
+    });
 
-                                                                                                                clonedSelect.replaceWith(span);
-                                                                                                                      }
-                                                                                                                          });
+    // إعداد نسخة التقرير
+    clone.style.width = '760px';
+    clone.style.maxWidth = '760px';
+    clone.style.boxSizing = 'border-box';
+    clone.style.margin = '0 auto';
+    clone.style.height = 'auto';
+    clone.style.maxHeight = 'none';
+    clone.style.overflow = 'visible';
+    clone.style.background = '#ffffff';
+    clone.style.padding = '16px';
+    clone.style.direction = 'rtl';
+    clone.style.fontFamily = 'Cairo, Arial, sans-serif';
 
-                                                                                                                              // مزامنة حقول الإدخال
-                                                                                                                                  const originalInputs = element.querySelectorAll('input, textarea');
-                                                                                                                                      const clonedInputs = clone.querySelectorAll('input, textarea');
+    // إظهار النسخة خارج الشاشة
+    const wrapper = document.createElement('div');
+    wrapper.style.position = 'fixed';
+    wrapper.style.left = '-99999px';
+    wrapper.style.top = '0';
+    wrapper.style.width = '800px';
+    wrapper.style.background = '#ffffff';
+    wrapper.style.overflow = 'visible';
+    wrapper.style.zIndex = '-1';
 
-                                                                                                                                          originalInputs.forEach((input, index) => {
-                                                                                                                                                if (clonedInputs[index]) {
-                                                                                                                                                        const original = input as HTMLInputElement | HTMLTextAreaElement;
-                                                                                                                                                                const cloned = clonedInputs[index] as
-                                                                                                                                                                          | HTMLInputElement
-                                                                                                                                                                                    | HTMLTextAreaElement;
+    wrapper.appendChild(clone);
+    document.body.appendChild(wrapper);
 
-                                                                                                                                                                                            cloned.value = original.value;
-                                                                                                                                                                                                  }
-                                                                                                                                                                                                      });
+    // السماح للمتصفح بإكمال عملية الرسم
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => resolve());
+    });
 
-                                                                                                                                                                                                          // إعداد نسخة التقرير
-                                                                                                                                                                                                              clone.style.width = '760px';
-                                                                                                                                                                                                                  clone.style.maxWidth = '760px';
-                                                                                                                                                                                                                      clone.style.boxSizing = 'border-box';
-                                                                                                                                                                                                                          clone.style.margin = '0 auto';
-                                                                                                                                                                                                                              clone.style.height = 'auto';
-                                                                                                                                                                                                                                  clone.style.maxHeight = 'none';
-                                                                                                                                                                                                                                      clone.style.overflow = 'visible';
-                                                                                                                                                                                                                                          clone.style.background = '#ffffff';
-                                                                                                                                                                                                                                              clone.style.padding = '16px';
-                                                                                                                                                                                                                                                  clone.style.direction = 'rtl';
-                                                                                                                                                                                                                                                      clone.style.fontFamily = 'Cairo, Arial, sans-serif';
+    // تحويل التقرير إلى صورة عالية الدقة
+    const canvas = await html2canvas(clone, {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: '#ffffff',
+      scrollY: 0,
+      windowWidth: 800,
+      logging: false,
+    });
 
-                                                                                                                                                                                                                                                          // إظهار النسخة خارج الشاشة
-                                                                                                                                                                                                                                                              const wrapper = document.createElement('div');
+    const imgData = canvas.toDataURL('image/jpeg', 0.98);
 
-                                                                                                                                                                                                                                                                  wrapper.style.position = 'fixed';
-                                                                                                                                                                                                                                                                      wrapper.style.left = '-99999px';
-                                                                                                                                                                                                                                                                          wrapper.style.top = '0';
-                                                                                                                                                                                                                                                                              wrapper.style.width = '800px';
-                                                                                                                                                                                                                                                                                  wrapper.style.background = '#ffffff';
-                                                                                                                                                                                                                                                                                      wrapper.style.overflow = 'visible';
-                                                                                                                                                                                                                                                                                          wrapper.style.zIndex = '-1';
+    // إنشاء ملف PDF A4
+    const pdf = new jsPDF({
+      unit: 'mm',
+      format: 'a4',
+      orientation: 'portrait',
+    });
 
-                                                                                                                                                                                                                                                                                              wrapper.appendChild(clone);
-                                                                                                                                                                                                                                                                                                  document.body.appendChild(wrapper);
+    const pageWidth = 210;
+    const pageHeight = 297;
+    const marginX = 6;
+    const marginY = 8;
 
-                                                                                                                                                                                                                                                                                                      // السماح للمتصفح بإكمال عملية الرسم
-                                                                                                                                                                                                                                                                                                          await new Promise<void>((resolve) => {
-                                                                                                                                                                                                                                                                                                                requestAnimationFrame(() => resolve());
-                                                                                                                                                                                                                                                                                                                    });
+    const usableWidth = pageWidth - marginX * 2;
+    const usableHeight = pageHeight - marginY * 2;
 
-                                                                                                                                                                                                                                                                                                                        // تحويل التقرير إلى صورة عالية الدقة
-                                                                                                                                                                                                                                                                                                                            const canvas = await html2canvas(clone, {
-                                                                                                                                                                                                                                                                                                                                  scale: 2,
-                                                                                                                                                                                                                                                                                                                                        useCORS: true,
-                                                                                                                                                                                                                                                                                                                                              backgroundColor: '#ffffff',
-                                                                                                                                                                                                                                                                                                                                                    scrollY: 0,
-                                                                                                                                                                                                                                                                                                                                                          windowWidth: 800,
-                                                                                                                                                                                                                                                                                                                                                                logging: false,
-                                                                                                                                                                                                                                                                                                                                                                    });
+    const imgWidth = usableWidth;
+    const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
-                                                                                                                                                                                                                                                                                                                                                                        const imgData = canvas.toDataURL('image/jpeg', 0.98);
+    let heightLeft = imgHeight;
+    let position = marginY;
 
-                                                                                                                                                                                                                                                                                                                                                                            // إنشاء ملف PDF A4
-                                                                                                                                                                                                                                                                                                                                                                                const pdf = new jsPDF({
-                                                                                                                                                                                                                                                                                                                                                                                      unit: 'mm',
-                                                                                                                                                                                                                                                                                                                                                                                            format: 'a4',
-                                                                                                                                                                                                                                                                                                                                                                                                  orientation: 'portrait',
-                                                                                                                                                                                                                                                                                                                                                                                                      });
+    pdf.addImage(imgData, 'JPEG', marginX, position, imgWidth, imgHeight, undefined, 'FAST');
+    heightLeft -= usableHeight;
 
-                                                                                                                                                                                                                                                                                                                                                                                                          const pageWidth = 210;
-                                                                                                                                                                                                                                                                                                                                                                                                              const pageHeight = 297;
+    while (heightLeft > 0) {
+      position = marginY - (imgHeight - heightLeft);
+      pdf.addPage();
+      pdf.addImage(imgData, 'JPEG', marginX, position, imgWidth, imgHeight, undefined, 'FAST');
+      heightLeft -= usableHeight;
+    }
 
-                                                                                                                                                                                                                                                                                                                                                                                                                  const marginX = 6;
-                                                                                                                                                                                                                                                                                                                                                                                                                      const marginY = 8;
+    // ✅ التحقق مما إذا كنا داخل تطبيق Android (Native)
+    if (Capacitor.isNativePlatform()) {
+      // حفظ الملف في مجلد Cache الخاص بالتطبيق (آمن 100%)
+      const pdfBlob = pdf.output('blob');
+      const base64Data = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.readAsDataURL(pdfBlob);
+      });
 
-                                                                                                                                                                                                                                                                                                                                                                                                                          const usableWidth = pageWidth - marginX * 2;
-                                                                                                                                                                                                                                                                                                                                                                                                                              const usableHeight = pageHeight - marginY * 2;
+      const fileName = `${safeName(title)}.pdf`;
 
-                                                                                                                                                                                                                                                                                                                                                                                                                                  const imgWidth = usableWidth;
-                                                                                                                                                                                                                                                                                                                                                                                                                                      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      const savedFile = await Filesystem.writeFile({
+        path: fileName,
+        data: base64Data.split(',')[1], // إزالة رأس الـ Base64
+        directory: Directory.Cache,
+        encoding: Encoding.UTF8,
+      });
 
-                                                                                                                                                                                                                                                                                                                                                                                                                                          let heightLeft = imgHeight;
-                                                                                                                                                                                                                                                                                                                                                                                                                                              let position = marginY;
+      // فتح نافذة المشاركة الأصلية في أندرويد
+      await Share.share({
+        title: title,
+        text: title,
+        url: savedFile.uri,
+        dialogTitle: 'مشاركة تقرير المشروع',
+      });
 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                  // الصفحة الأولى
-                                                                                                                                                                                                                                                                                                                                                                                                                                                      pdf.addImage(
-                                                                                                                                                                                                                                                                                                                                                                                                                                                            imgData,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                  'JPEG',
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                        marginX,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                              position,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    imgWidth,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          imgHeight,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                undefined,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      'FAST'
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          );
+    } else {
+      // ✅ للمتصفح العادي (الحفظ المباشر)
+      pdf.save(`${safeName(title)}.pdf`);
+    }
 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              heightLeft -= usableHeight;
+    document.body.removeChild(wrapper);
 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  // الصفحات التالية عند طول التقرير
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      while (heightLeft > 0) {
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            position = marginY - (imgHeight - heightLeft);
-
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  pdf.addPage();
-
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        pdf.addImage(
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                imgData,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        'JPEG',
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                marginX,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        position,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                imgWidth,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        imgHeight,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                undefined,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        'FAST'
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              );
-
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    heightLeft -= usableHeight;
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        }
-
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            // حفظ الملف باسم عربي آمن
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                const fileName = `${safeName(title)}.pdf`;
-
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    pdf.save(fileName);
-
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        // مشاركة الملف عند توفر Web Share API
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            try {
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  const pdfBlob = pdf.output('blob');
-
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        const file = new File([pdfBlob], fileName, {
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                type: 'application/pdf',
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      });
-
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            if (
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    typeof navigator !== 'undefined' &&
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            'share' in navigator &&
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    navigator.canShare &&
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            navigator.canShare({ files: [file] })
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  ) {
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          await navigator.share({
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    title,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              text: title,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        files: [file],
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                });
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      }
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          } catch (shareError) {
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                // إذا لم يدعم الجهاز المشاركة، يبقى الملف محفوظًا على الجهاز
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      console.log('تعذر فتح نافذة المشاركة:', shareError);
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          }
-
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              document.body.removeChild(wrapper);
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                } catch (error) {
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    console.error('PDF creation error:', error);
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        alert('حدث خطأ أثناء إنشاء ملف PDF');
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          }
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          };
+  } catch (error) {
+    console.error('PDF creation error:', error);
+    alert('حدث خطأ أثناء إنشاء ملف PDF');
+  }
+};
