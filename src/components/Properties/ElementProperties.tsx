@@ -38,19 +38,29 @@ const buttonStyle: React.CSSProperties = {
   fontSize: 13,
 };
 
+// دالة تحويل آمنة (لا تعيد NaN أبداً)
+const safeParse = (val: string, fallback: number) => {
+  if (val === '' || val === '.' || val === ',') return fallback;
+  const num = parseFloat(val.replace(',', '.'));
+  return isNaN(num) ? fallback : num;
+};
+
 export const ElementProperties: React.FC<Props> = ({ selected, columns, windows, doors, walls, updateColumn, updateWindow, updateDoor }) => {
   if (!selected) return null;
 
   const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => e.target.select();
+  
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
   };
-  
-  const handleNumericChange = (e: React.ChangeEvent<HTMLInputElement>, update: (n: number) => void) => {
+
+  // دالة مساعدة للحفظ عند مغادرة الحقل أو الضغط على Enter
+  const commitEdit = (e: React.FocusEvent<HTMLInputElement>, fallback: number, update: (n: number) => void) => {
     const val = e.target.value;
-    if (/^[0-9]*[.,]?[0-9]*$/.test(val)) {
-      update(Number(val.replace(',', '.')));
-    }
+    const num = safeParse(val, fallback);
+    update(num);
+    // إعادة تعيين القيمة للحقل لعرض الرقم الصحيح إذا كان المدخل غير صالح
+    e.target.value = String(num);
   };
 
   if (selected.type === 'column') {
@@ -61,15 +71,45 @@ export const ElementProperties: React.FC<Props> = ({ selected, columns, windows,
         <span style={{ fontWeight: 700, color: '#003366' }}>📌</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           <span style={labelStyle}>العرض (م):</span>
-          <input type="text" inputMode="decimal" dir="ltr" pattern="[0-9]*[.,]?[0-9]*" value={col.width} style={inputStyle} onFocus={handleFocus} onKeyDown={handleKeyDown} onChange={e => handleNumericChange(e, (n) => updateColumn(col.id, { width: n }))} />
+          <input 
+            type="text" 
+            inputMode="decimal" 
+            dir="ltr" 
+            key={`${col.id}-w`} 
+            defaultValue={String(col.width)} 
+            style={inputStyle} 
+            onFocus={handleFocus} 
+            onKeyDown={handleKeyDown} 
+            onBlur={(e) => commitEdit(e, col.width, (n) => updateColumn(col.id, { width: n }))} 
+          />
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           <span style={labelStyle}>الطول (م):</span>
-          <input type="text" inputMode="decimal" dir="ltr" pattern="[0-9]*[.,]?[0-9]*" value={col.length} style={inputStyle} onFocus={handleFocus} onKeyDown={handleKeyDown} onChange={e => handleNumericChange(e, (n) => updateColumn(col.id, { length: n }))} />
+          <input 
+            type="text" 
+            inputMode="decimal" 
+            dir="ltr" 
+            key={`${col.id}-l`} 
+            defaultValue={String(col.length)} 
+            style={inputStyle} 
+            onFocus={handleFocus} 
+            onKeyDown={handleKeyDown} 
+            onBlur={(e) => commitEdit(e, col.length, (n) => updateColumn(col.id, { length: n }))} 
+          />
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           <span style={labelStyle}>الدوران (°):</span>
-          <input type="text" inputMode="decimal" dir="ltr" pattern="[0-9]*[.,]?[0-9]*" value={((col.rotation || 0) * 180) / Math.PI} style={inputStyle} onFocus={handleFocus} onKeyDown={handleKeyDown} onChange={e => handleNumericChange(e, (n) => updateColumn(col.id, { rotation: (n * Math.PI) / 180 }))} />
+          <input 
+            type="text" 
+            inputMode="decimal" 
+            dir="ltr" 
+            key={`${col.id}-r`} 
+            defaultValue={String((col.rotation || 0) * 180 / Math.PI)} 
+            style={inputStyle} 
+            onFocus={handleFocus} 
+            onKeyDown={handleKeyDown} 
+            onBlur={(e) => commitEdit(e, (col.rotation || 0) * 180 / Math.PI, (n) => updateColumn(col.id, { rotation: (n * Math.PI) / 180 }))} 
+          />
         </div>
       </div>
     );
@@ -83,15 +123,45 @@ export const ElementProperties: React.FC<Props> = ({ selected, columns, windows,
         <span style={{ fontWeight: 700, color: '#003366' }}>🪟</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           <span style={labelStyle}>العرض (م):</span>
-          <input type="text" inputMode="decimal" dir="ltr" pattern="[0-9]*[.,]?[0-9]*" value={win.width} style={inputStyle} onFocus={handleFocus} onKeyDown={handleKeyDown} onChange={e => handleNumericChange(e, (n) => updateWindow(win.id, { width: n }))} />
+          <input 
+            type="text" 
+            inputMode="decimal" 
+            dir="ltr" 
+            key={`${win.id}-w`} 
+            defaultValue={String(win.width)} 
+            style={inputStyle} 
+            onFocus={handleFocus} 
+            onKeyDown={handleKeyDown} 
+            onBlur={(e) => commitEdit(e, win.width, (n) => updateWindow(win.id, { width: n }))} 
+          />
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           <span style={labelStyle}>الارتفاع (م):</span>
-          <input type="text" inputMode="decimal" dir="ltr" pattern="[0-9]*[.,]?[0-9]*" value={win.height} style={inputStyle} onFocus={handleFocus} onKeyDown={handleKeyDown} onChange={e => handleNumericChange(e, (n) => updateWindow(win.id, { height: n }))} />
+          <input 
+            type="text" 
+            inputMode="decimal" 
+            dir="ltr" 
+            key={`${win.id}-h`} 
+            defaultValue={String(win.height)} 
+            style={inputStyle} 
+            onFocus={handleFocus} 
+            onKeyDown={handleKeyDown} 
+            onBlur={(e) => commitEdit(e, win.height, (n) => updateWindow(win.id, { height: n }))} 
+          />
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           <span style={labelStyle}>السماكة (م):</span>
-          <input type="text" inputMode="decimal" dir="ltr" pattern="[0-9]*[.,]?[0-9]*" value={win.thickness} style={inputStyle} onFocus={handleFocus} onKeyDown={handleKeyDown} onChange={e => handleNumericChange(e, (n) => updateWindow(win.id, { thickness: n }))} />
+          <input 
+            type="text" 
+            inputMode="decimal" 
+            dir="ltr" 
+            key={`${win.id}-t`} 
+            defaultValue={String(win.thickness)} 
+            style={inputStyle} 
+            onFocus={handleFocus} 
+            onKeyDown={handleKeyDown} 
+            onBlur={(e) => commitEdit(e, win.thickness, (n) => updateWindow(win.id, { thickness: n }))} 
+          />
         </div>
       </div>
     );
@@ -105,15 +175,45 @@ export const ElementProperties: React.FC<Props> = ({ selected, columns, windows,
         <span style={{ fontWeight: 700, color: '#003366' }}>🚪</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           <span style={labelStyle}>العرض (م):</span>
-          <input type="text" inputMode="decimal" dir="ltr" pattern="[0-9]*[.,]?[0-9]*" value={door.width} style={inputStyle} onFocus={handleFocus} onKeyDown={handleKeyDown} onChange={e => handleNumericChange(e, (n) => updateDoor(door.id, { width: n }))} />
+          <input 
+            type="text" 
+            inputMode="decimal" 
+            dir="ltr" 
+            key={`${door.id}-w`} 
+            defaultValue={String(door.width)} 
+            style={inputStyle} 
+            onFocus={handleFocus} 
+            onKeyDown={handleKeyDown} 
+            onBlur={(e) => commitEdit(e, door.width, (n) => updateDoor(door.id, { width: n }))} 
+          />
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           <span style={labelStyle}>الارتفاع (م):</span>
-          <input type="text" inputMode="decimal" dir="ltr" pattern="[0-9]*[.,]?[0-9]*" value={door.height} style={inputStyle} onFocus={handleFocus} onKeyDown={handleKeyDown} onChange={e => handleNumericChange(e, (n) => updateDoor(door.id, { height: n }))} />
+          <input 
+            type="text" 
+            inputMode="decimal" 
+            dir="ltr" 
+            key={`${door.id}-h`} 
+            defaultValue={String(door.height)} 
+            style={inputStyle} 
+            onFocus={handleFocus} 
+            onKeyDown={handleKeyDown} 
+            onBlur={(e) => commitEdit(e, door.height, (n) => updateDoor(door.id, { height: n }))} 
+          />
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           <span style={labelStyle}>السماكة (م):</span>
-          <input type="text" inputMode="decimal" dir="ltr" pattern="[0-9]*[.,]?[0-9]*" value={door.thickness} style={inputStyle} onFocus={handleFocus} onKeyDown={handleKeyDown} onChange={e => handleNumericChange(e, (n) => updateDoor(door.id, { thickness: n }))} />
+          <input 
+            type="text" 
+            inputMode="decimal" 
+            dir="ltr" 
+            key={`${door.id}-t`} 
+            defaultValue={String(door.thickness)} 
+            style={inputStyle} 
+            onFocus={handleFocus} 
+            onKeyDown={handleKeyDown} 
+            onBlur={(e) => commitEdit(e, door.thickness, (n) => updateDoor(door.id, { thickness: n }))} 
+          />
         </div>
         <button onClick={() => updateDoor(door.id, { swing: door.swing === 1 ? -1 : 1 })} style={{ ...buttonStyle, background: '#06f' }}>
           🔄 انعكاس
