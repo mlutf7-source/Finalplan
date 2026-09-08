@@ -63,6 +63,13 @@ const fieldStyle: React.CSSProperties = {
   minWidth: 120,
 };
 
+// دالة تحويل آمنة (لا تعيد NaN أبداً)
+const safeParse = (val: string, fallback: number) => {
+  if (val === '' || val === '.' || val === ',') return fallback;
+  const num = parseFloat(val.replace(',', '.'));
+  return isNaN(num) ? fallback : num;
+};
+
 export const StructureInputs: React.FC<Props> = ({
   designFloors,
   buildFloors,
@@ -70,12 +77,15 @@ export const StructureInputs: React.FC<Props> = ({
   onBuildFloorsChange,
   onCalculate,
 }) => {
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>, setter: (n: number) => void) => {
-    const val = e.target.value;
-    // السماح فقط بالأرقام الإنجليزية والنقطة أو الفاصلة العشرية
-    if (/^[0-9]*[.,]?[0-9]*$/.test(val)) {
-      setter(Number(val.replace(',', '.')));
-    }
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+  };
+
+  // دالة الحفظ عند مغادرة الحقل
+  const commitEdit = (e: React.FocusEvent<HTMLInputElement>, fallback: number, onChange: (n: number) => void) => {
+    const num = safeParse(e.target.value, fallback);
+    onChange(num);
+    e.target.value = String(num);
   };
 
   return (
@@ -89,11 +99,12 @@ export const StructureInputs: React.FC<Props> = ({
               type="text"
               inputMode="decimal"
               dir="ltr"
-              pattern="[0-9]*[.,]?[0-9]*"
-              value={designFloors}
-              onChange={e => handleChange(e, onDesignFloorsChange)}
+              key={`design-floors`}
+              defaultValue={String(designFloors)}
               style={inputStyle}
               onFocus={(e) => e.target.select()}
+              onKeyDown={handleKeyDown}
+              onBlur={(e) => commitEdit(e, designFloors, onDesignFloorsChange)}
             />
           </div>
           <div style={fieldStyle}>
@@ -102,11 +113,12 @@ export const StructureInputs: React.FC<Props> = ({
               type="text"
               inputMode="decimal"
               dir="ltr"
-              pattern="[0-9]*[.,]?[0-9]*"
-              value={buildFloors}
-              onChange={e => handleChange(e, onBuildFloorsChange)}
+              key={`build-floors`}
+              defaultValue={String(buildFloors)}
               style={inputStyle}
               onFocus={(e) => e.target.select()}
+              onKeyDown={handleKeyDown}
+              onBlur={(e) => commitEdit(e, buildFloors, onBuildFloorsChange)}
             />
           </div>
         </div>
