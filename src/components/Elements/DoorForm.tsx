@@ -23,10 +23,7 @@ interface Props {
                                         <select value={wallId} onChange={e => setWallId(e.target.value)} style={{ padding: 6, borderRadius: 4 }}>
                                                   {walls.map(w => <option key={w.id} value={w.id}>جدار {w.type === 'exterior' ? 'خارجي' : 'داخلي'}</option>)}
                                                           </select>
-                                                                  <span>موقع:</span><input type="number" value={pos} onChange={e => setPos(+e.target.value)} style={inputStyle} />
-                                                                          <span>عرض:</span><input type="number" value={w} onChange={e => setW(+e.target.value)} style={inputStyle} />
-                                                                                  <span>ارتفاع:</span><input type="number" value={h} onChange={e => setH(+e.target.value)} style={inputStyle} />
-                                                                                          <button
+                                                                     <span>موقع:</span><input type="text" inputMode="decimal" lang="en" dir="ltr" value={pos} onChange={e => setPos(Number(e.target.value.replace(',', '.')))} style={inputStyle} />     <span>عرض:</span><input type="text" inputMode="decimal" lang="en" dir="ltr" value={w} onChange={e => setW(Number(e.target.value.replace(',', '.')))} style={inputStyle} />        <span>ارتفاع:</span><input type="text" inputMode="decimal" lang="en" dir="ltr" value={h} onChange={e => setH(Number(e.target.value.replace(',', '.')))} style={inputStyle} />      <button
                                                                                                     onClick={() => onAdd({ wallId, position: pos, width: w, height: h })}
                                                                                                               style={{ padding: '6px 12px', background: '#06f', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}
                                                                                                                       >
