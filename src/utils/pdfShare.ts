@@ -1,5 +1,6 @@
 import { Capacitor } from '@capacitor/core';
-// ملاحظة: لا نستخدم Filesystem أو Share هنا في هذا الحل
+import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
 
 const safeName = (name: string) =>
   name.replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, '_');
@@ -16,7 +17,7 @@ export const createPdfFromElement = async (
   }
 
   try {
-    // تحميل المكتبات كسولاً (Dynamic Import)
+    alert('1. جاري تجهيز التقرير...');
     const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
       import('html2canvas'),
       import('jspdf')
@@ -27,7 +28,6 @@ export const createPdfFromElement = async (
     // مزامنة القوائم المنسدلة
     const originalSelects = element.querySelectorAll('select');
     const clonedSelects = clone.querySelectorAll('select');
-
     originalSelects.forEach((select, index) => {
       const clonedSelect = clonedSelects[index] as HTMLSelectElement;
       if (clonedSelect) {
@@ -43,7 +43,6 @@ export const createPdfFromElement = async (
     // مزامنة حقول الإدخال
     const originalInputs = element.querySelectorAll('input, textarea');
     const clonedInputs = clone.querySelectorAll('input, textarea');
-
     originalInputs.forEach((input, index) => {
       if (clonedInputs[index]) {
         const original = input as HTMLInputElement | HTMLTextAreaElement;
@@ -52,7 +51,6 @@ export const createPdfFromElement = async (
       }
     });
 
-    // إعداد نسخة التقرير
     clone.style.width = '760px';
     clone.style.maxWidth = '760px';
     clone.style.boxSizing = 'border-box';
@@ -65,7 +63,6 @@ export const createPdfFromElement = async (
     clone.style.direction = 'rtl';
     clone.style.fontFamily = 'Cairo, Arial, sans-serif';
 
-    // إظهار النسخة خارج الشاشة
     const wrapper = document.createElement('div');
     wrapper.style.position = 'fixed';
     wrapper.style.left = '-99999px';
@@ -77,39 +74,29 @@ export const createPdfFromElement = async (
 
     wrapper.appendChild(clone);
     document.body.appendChild(wrapper);
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 
-    // السماح للمتصفح بإكمال عملية الرسم
-    await new Promise<void>((resolve) => {
-      requestAnimationFrame(() => resolve());
-    });
-
+    alert('2. جاري تحويل التقرير لصورة...');
     const canvas = await html2canvas(clone, {
-      scale: 2,
-      useCORS: true,
-      backgroundColor: '#ffffff',
-      scrollY: 0,
-      windowWidth: 800,
-      logging: false,
+      scale: 2, useCORS: true, backgroundColor: '#ffffff', scrollY: 0, windowWidth: 800, logging: false,
     });
 
     const imgData = canvas.toDataURL('image/jpeg', 0.98);
 
+    alert('3. جاري إنشاء ملف الـ PDF...');
     const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
 
     const pageWidth = 210;
     const pageHeight = 297;
     const marginX = 6;
     const marginY = 8;
-
     const usableWidth = pageWidth - marginX * 2;
     const usableHeight = pageHeight - marginY * 2;
-
     const imgWidth = usableWidth;
     const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
     let heightLeft = imgHeight;
     let position = marginY;
-
     pdf.addImage(imgData, 'JPEG', marginX, position, imgWidth, imgHeight, undefined, 'FAST');
     heightLeft -= usableHeight;
 
@@ -120,33 +107,40 @@ export const createPdfFromElement = async (
       heightLeft -= usableHeight;
     }
 
-    // ✅ طريقة التحميل المباشر (تعمل بدون Filesystem)
+    alert('4. جاري تجهيز ملف الـ PDF للمشاركة...');
     const fileName = `${safeName(title)}.pdf`;
     
-    const blob = pdf.output('blob');
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = fileName;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    const base64Data = await new Promise<string>((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.readAsDataURL(pdf.output('blob'));
+    });
 
-    // ✅ محاولة المشاركة المباشرة (Web Share API)
-    try {
-      const file = new File([blob], fileName, { type: 'application/pdf' });
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file], title, text: title });
-      }
-    } catch (shareError) {
-      console.log('Share failed or cancelled', shareError);
+    // ✅ الحل: استخدام مكتبات Capacitor لضمان العمل داخل تطبيق الأندرويد
+    if (Capacitor.isNativePlatform()) {
+      const savedFile = await Filesystem.writeFile({
+        path: fileName,
+        data: base64Data.split(',')[1],
+        directory: Directory.Cache,
+        encoding: Encoding.UTF8,
+      });
+
+      alert('5. تم الحفظ بنجاح، جاري فتح نافذة المشاركة...');
+      await Share.share({
+        title: title,
+        text: title,
+        url: savedFile.uri,
+        dialogTitle: 'مشاركة تقرير المشروع',
+      });
+    } else {
+      // للمتصفح فقط
+      pdf.save(fileName);
     }
 
     document.body.removeChild(wrapper);
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('PDF creation error:', error);
-    alert('حدث خطأ أثناء إنشاء ملف PDF');
+    alert('حدث خطأ أثناء إنشاء ملف PDF: ' + (error?.message || 'خطأ غير معروف'));
   }
 };
