@@ -1,12 +1,10 @@
 import React from 'react';
 
 interface Props {
-  excavationDepth: number;
-  backfillDepth: number;
-  plinthHeight: number;
-  onExcavationDepthChange: (value: number) => void;
-  onBackfillDepthChange: (value: number) => void;
-  onPlinthHeightChange: (value: number) => void;
+  designFloors: number;
+  buildFloors: number;
+  onDesignFloorsChange: (value: number) => void;
+  onBuildFloorsChange: (value: number) => void;
   onCalculate: () => void;
 }
 
@@ -65,17 +63,16 @@ const fieldStyle: React.CSSProperties = {
   minWidth: 120,
 };
 
-export const PreliminaryInputs: React.FC<Props> = ({
-  excavationDepth,
-  backfillDepth,
-  plinthHeight,
-  onExcavationDepthChange,
-  onBackfillDepthChange,
-  onPlinthHeightChange,
+export const StructureInputs: React.FC<Props> = ({
+  designFloors,
+  buildFloors,
+  onDesignFloorsChange,
+  onBuildFloorsChange,
   onCalculate,
 }) => {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>, setter: (n: number) => void) => {
     const val = e.target.value;
+    // السماح فقط بالأرقام الإنجليزية والنقطة أو الفاصلة العشرية
     if (/^[0-9]*[.,]?[0-9]*$/.test(val)) {
       setter(Number(val.replace(',', '.')));
     }
@@ -83,50 +80,37 @@ export const PreliminaryInputs: React.FC<Props> = ({
 
   return (
     <div style={cardStyle}>
-      <div style={headStyle}>مدخلات التمهيدية</div>
+      <div style={headStyle}>مدخلات الهيكل</div>
       <div style={bodyStyle}>
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
           <div style={fieldStyle}>
-            <label style={labelStyle}>⛏️ عمق الحفر (متر)</label>
+            <label style={labelStyle}>🏗️ عدد أدوار تصميم الأساسات</label>
             <input
               type="text"
               inputMode="decimal"
               dir="ltr"
               pattern="[0-9]*[.,]?[0-9]*"
-              value={excavationDepth}
-              onChange={e => handleChange(e, onExcavationDepthChange)}
+              value={designFloors}
+              onChange={e => handleChange(e, onDesignFloorsChange)}
               style={inputStyle}
               onFocus={(e) => e.target.select()}
             />
           </div>
           <div style={fieldStyle}>
-            <label style={labelStyle}>🪨 عمق الدفان (متر)</label>
+            <label style={labelStyle}>🏢 عدد الأدوار المراد بناؤها</label>
             <input
               type="text"
               inputMode="decimal"
               dir="ltr"
               pattern="[0-9]*[.,]?[0-9]*"
-              value={backfillDepth}
-              onChange={e => handleChange(e, onBackfillDepthChange)}
-              style={inputStyle}
-              onFocus={(e) => e.target.select()}
-            />
-          </div>
-          <div style={fieldStyle}>
-            <label style={labelStyle}>🧱 ارتفاع الكرسي (متر)</label>
-            <input
-              type="text"
-              inputMode="decimal"
-              dir="ltr"
-              pattern="[0-9]*[.,]?[0-9]*"
-              value={plinthHeight}
-              onChange={e => handleChange(e, onPlinthHeightChange)}
+              value={buildFloors}
+              onChange={e => handleChange(e, onBuildFloorsChange)}
               style={inputStyle}
               onFocus={(e) => e.target.select()}
             />
           </div>
         </div>
-        <button onClick={onCalculate} style={btnStyle}>احسب الكميات التمهيدية</button>
+        <button onClick={onCalculate} style={btnStyle}>احسب كميات الهيكل</button>
       </div>
     </div>
   );
