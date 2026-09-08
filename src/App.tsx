@@ -4,6 +4,7 @@ import { CanvasContainer } from './components/Canvas/CanvasContainer';
 import { TopToolbar } from './components/Toolbar/TopToolbar';
 import { QuantitiesPanel } from './components/Calculator/QuantitiesPanel';
 import { exportToPDF } from './core/pdfExport';
+import { App as CapApp } from '@capacitor/app';
 import './App.css';
 
 const handleError = (msg: string) => alert(msg);
@@ -26,11 +27,30 @@ const zoom = Math.min(container.clientWidth / (width * 100), container.clientHei
 state.setView({ zoom: Math.max(0.35, Math.min(zoom, 1)), offsetX: -(minX + maxX) / 2, offsetY: -(minY + maxY) / 2 });
 };
 
+// ✅ حل مشكلة زر الخروج في الأندرويد (Back Button) + المتصفح
 useEffect(() => {
-const handler = (e: BeforeUnloadEvent) => { if (state.isDirty) { e.preventDefault(); e.returnValue = ''; } };
-window.addEventListener('beforeunload', handler);
-return () => { window.removeEventListener('beforeunload', handler); };
-}, [state.isDirty]);
+  const beforeUnloadHandler = (e: BeforeUnloadEvent) => {
+    if (state.isDirty) { e.preventDefault(); e.returnValue = ''; }
+  };
+  window.addEventListener('beforeunload', beforeUnloadHandler);
+
+  const backButtonHandler = async () => {
+    if (isSidebarOpen) { setIsSidebarOpen(false); return; }
+    if (state.isDirty) {
+      const shouldExit = confirm('لديك تغييرات غير محفوظة. هل تريد الخروج من التطبيق؟');
+      if (shouldExit) await CapApp.exitApp();
+    } else {
+      await CapApp.exitApp();
+    }
+  };
+
+  CapApp.addListener('backButton', backButtonHandler);
+
+  return () => {
+    window.removeEventListener('beforeunload', beforeUnloadHandler);
+    CapApp.removeAllListeners();
+  };
+}, [state.isDirty, isSidebarOpen]);
 
 const askName = (title: string, initial: string) => window.prompt(title, initial);
 const save = () => { const name = askName('أدخل اسم المشروع:', state.currentProjectName || 'مسودة غير محفوظة'); if (name?.trim()) { state.handleSaveProject(name.trim()); alert('تم الحفظ!'); setIsSidebarOpen(false); } };
