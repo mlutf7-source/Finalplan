@@ -18,12 +18,15 @@ const inputStyle: React.CSSProperties = {
 
 export const DoorForm: React.FC<Props> = ({ walls, onAdd }) => {
   const [wallId, setWallId] = useState(walls[0]?.id ?? '');
-  const [pos, setPos] = useState(0);
-  const [w, setW] = useState(1);
-  const [h, setH] = useState(2.2);
 
-  const parseNumber = (value: string): number => {
-    const normalized = value
+  // نخزن القيمة كنص حتى يستطيع المستخدم كتابة الكسور مثل 5.5 بحرية
+  const [pos, setPos] = useState('0');
+  const [w, setW] = useState('1');
+  const [h, setH] = useState('2.2');
+
+  // تحويل الأرقام العربية إلى إنجليزية مع السماح بالنقطة والكسور
+  const normalizeNumber = (value: string): string => {
+    return value
       .replace(/٠/g, '0')
       .replace(/١/g, '1')
       .replace(/٢/g, '2')
@@ -34,10 +37,43 @@ export const DoorForm: React.FC<Props> = ({ walls, onAdd }) => {
       .replace(/٧/g, '7')
       .replace(/٨/g, '8')
       .replace(/٩/g, '9')
-      .replace(/٫/g, '.');
+      .replace(/۰/g, '0')
+      .replace(/۱/g, '1')
+      .replace(/۲/g, '2')
+      .replace(/۳/g, '3')
+      .replace(/۴/g, '4')
+      .replace(/۵/g, '5')
+      .replace(/۶/g, '6')
+      .replace(/۷/g, '7')
+      .replace(/۸/g, '8')
+      .replace(/۹/g, '9')
+      .replace(/٫/g, '.')
+      .replace(/,/g, '.');
+  };
 
-    const number = Number(normalized);
-    return Number.isFinite(number) ? number : 0;
+  const handleAdd = () => {
+    const position = Number(pos);
+    const width = Number(w);
+    const height = Number(h);
+
+    if (
+      !Number.isFinite(position) ||
+      !Number.isFinite(width) ||
+      !Number.isFinite(height)
+    ) {
+      return;
+    }
+
+    onAdd({
+      wallId,
+      position,
+      width,
+      height,
+      thickness: 0.05,
+      hinge: 'start',
+      swing: 1,
+      side: 1,
+    });
   };
 
   return (
@@ -77,50 +113,39 @@ export const DoorForm: React.FC<Props> = ({ walls, onAdd }) => {
 
         <span>موقع:</span>
         <input
-          type="number"
-          step="0.01"
+          type="text"
           inputMode="decimal"
           lang="en"
+          dir="ltr"
           value={pos}
-          onChange={(e) => setPos(parseNumber(e.target.value))}
+          onChange={(e) => setPos(normalizeNumber(e.target.value))}
           style={inputStyle}
         />
 
         <span>عرض:</span>
         <input
-          type="number"
-          step="0.01"
+          type="text"
           inputMode="decimal"
           lang="en"
+          dir="ltr"
           value={w}
-          onChange={(e) => setW(parseNumber(e.target.value))}
+          onChange={(e) => setW(normalizeNumber(e.target.value))}
           style={inputStyle}
         />
 
         <span>ارتفاع:</span>
         <input
-          type="number"
-          step="0.01"
+          type="text"
           inputMode="decimal"
           lang="en"
+          dir="ltr"
           value={h}
-          onChange={(e) => setH(parseNumber(e.target.value))}
+          onChange={(e) => setH(normalizeNumber(e.target.value))}
           style={inputStyle}
         />
 
         <button
-          onClick={() =>
-            onAdd({
-              wallId,
-              position: pos,
-              width: w,
-              height: h,
-              thickness: 0.05,
-              hinge: 'start',
-              swing: 1,
-              side: 1,
-            })
-          }
+          onClick={handleAdd}
           style={{
             padding: '6px 12px',
             background: '#06f',
