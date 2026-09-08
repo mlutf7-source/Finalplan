@@ -27,24 +27,18 @@ const zoom = Math.min(container.clientWidth / (width * 100), container.clientHei
 state.setView({ zoom: Math.max(0.35, Math.min(zoom, 1)), offsetX: -(minX + maxX) / 2, offsetY: -(minY + maxY) / 2 });
 };
 
-// ✅ حل مشكلة زر الخروج في الأندرويد (Back Button) - بدون نافذة المتصفح المزعجة
 useEffect(() => {
   const backButtonHandler = async () => {
     if (isSidebarOpen) { setIsSidebarOpen(false); return; }
     if (state.isDirty) {
-      // نافذة مخصصة واضحة
       const shouldExit = confirm('لديك تغييرات غير محفوظة. هل تريد الخروج من التطبيق؟');
       if (shouldExit) await CapApp.exitApp();
     } else {
       await CapApp.exitApp();
     }
   };
-
   CapApp.addListener('backButton', backButtonHandler);
-
-  return () => {
-    CapApp.removeAllListeners();
-  };
+  return () => { CapApp.removeAllListeners(); };
 }, [state.isDirty, isSidebarOpen]);
 
 const askName = (title: string, initial: string) => window.prompt(title, initial);
@@ -53,7 +47,15 @@ const load = (id: string) => { if (state.isDirty && !confirm('حفظ قبل ال
 const del = (id: string) => { if (confirm('حذف المشروع؟')) { state.handleDeleteProject(id); setIsSidebarOpen(false); } };
 const newProject = () => { if (state.isDirty && !confirm('حفظ التعديلات قبل مشروع جديد؟')) return; if (state.isDirty) { const name = askName('أدخل اسم المشروع لحفظ التعديلات:', state.currentProjectName); if (name?.trim()) state.handleSaveProject(name.trim()); } state.handleNewProject(); setIsSidebarOpen(false); setTimeout(() => fitViewToWalls(), 150); };
 const toggleClip = () => { state.setClipFrame(state.clipFrame ? null : { id: 'clip-main', x: state.walls[0] ? (state.walls[0].start.x + state.walls[0].end.x) / 2 : 5, y: state.walls[0] ? (state.walls[0].start.y + state.walls[0].end.y) / 2 : 5, width: 6, height: 6 * 1.414, rotation: 0 }); setIsSidebarOpen(false); };
-const pdf = async () => { if (!state.clipFrame) return handleError('يرجى تفعيل الكليشة أولاً'); const stage = document.querySelector('[data-floor-plan-stage="true"]') as HTMLElement; if (!stage) return handleError('تعذر العثور على منطقة الرسم'); await exportToPDF(stage, state.clipFrame, state.view); setIsSidebarOpen(false); };
+
+const pdf = async () => { 
+  alert('1. الزر يعمل، جاري البحث عن الكليشة...'); // ✅ رسالة تتبع
+  if (!state.clipFrame) return handleError('يرجى تفعيل الكليشة أولاً'); 
+  const stage = document.querySelector('[data-floor-plan-stage="true"]') as HTMLElement; 
+  if (!stage) return handleError('تعذر العثور على منطقة الرسم'); 
+  await exportToPDF(stage, state.clipFrame, state.view); 
+  setIsSidebarOpen(false); 
+};
 
 const canvas = (
 <CanvasContainer walls={state.walls} onWallsChange={state.handleWallsChange} mode={state.mode} drawingType={state.drawingType} onModeChange={state.setMode} onCancelTool={() => state.setMode('view')} dimensions={state.dimensions} onAddDimension={state.handleAddDimension} onDimensionsChange={state.handleDimensionsChange} dimensionFontSize={state.dimensionFontSize} layers={state.layers} columns={state.elements.columns} windows={state.elements.windows} doors={state.elements.doors} texts={state.textManager.texts} regions={state.regionsManager.regions} stairs={state.stairManager.stairs} northArrows={state.elements.northArrows} updateNorthArrow={state.handleUpdateNorthArrow} frozen={false} onAddStairAtPoint={state.handleAddStairAtPoint} onUpdateStair={state.handleUpdateStair} onDeleteStair={state.handleDeleteStair} onPlaceColumn={state.handlePlaceColumn} onPlaceWindow={state.handlePlaceWindow} onPlaceDoor={state.handlePlaceDoor} onPlaceRegion={state.handlePlaceRegion} onDeleteRegion={state.handleDeleteRegion} updateColumn={state.handleUpdateColumn} updateWindow={state.handleUpdateWindow} updateDoor={state.handleUpdateDoor} onDeleteColumn={state.handleDeleteColumn} onDeleteWindow={state.handleDeleteWindow} onDeleteDoor={state.handleDeleteDoor} onAddText={state.handleAddText} onUpdateText={state.handleUpdateText} onDeleteText={state.handleDeleteText} onCopyText={state.handleCopyText} clipFrame={state.clipFrame} setClipFrame={state.setClipFrame} />
