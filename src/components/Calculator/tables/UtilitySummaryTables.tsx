@@ -8,8 +8,26 @@ const tableStyle: React.CSSProperties = { width: '100%', borderCollapse: 'collap
 const thStyle: React.CSSProperties = { background: '#003366', color: 'white', padding: '8px 6px', border: '1px solid #003366', textAlign: 'center' };
 const tdStyle: React.CSSProperties = { padding: '7px 6px', border: '1px solid #ccc', textAlign: 'center', direction: 'ltr' };
 const inputStyle: React.CSSProperties = { width: 70, textAlign: 'center', padding: 4, border: '1px solid #ccc', borderRadius: 4, direction: 'ltr' };
+
+// دالة تحويل آمنة (لا تعيد NaN أبداً)
+const safeParse = (val: string, fallback: number) => {
+  if (val === '' || val === '.' || val === ',') return fallback;
+  const num = parseFloat(val.replace(',', '.'));
+  return isNaN(num) ? fallback : num;
+};
+
 export const UtilitySummaryTables: React.FC<Props> = ({ results, hasMarble, electricalPts, plumbingPts, onElectricalChange, onPlumbingChange }) => {
-const handleInput = (e: React.ChangeEvent<HTMLInputElement>, setter: (n: number) => void) => { const val = e.target.value; if (/^[0-9]*[.,]?[0-9]*$/.test(val)) setter(Number(val.replace(',', '.'))); };
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+  };
+
+  // دالة الحفظ عند مغادرة الحقل
+  const commitEdit = (e: React.FocusEvent<HTMLInputElement>, fallback: number, onChange: (n: number) => void) => {
+    const num = safeParse(e.target.value, fallback);
+    onChange(num);
+    e.target.value = String(num);
+  };
+
 const correctedPlasterWalls = Math.max(0, results.plasterWallsLabor - (results.intWindowArea + results.intDoorArea + results.extWindowArea + results.extDoorArea) - (results.tileKitchenWalls + results.tileBathroomWalls));
 const correctedPlasterCeiling = Math.max(0, results.plasterCeilingLabor - results.innerWallArea);
 const correctedPlasterArea = correctedPlasterWalls + correctedPlasterCeiling;
@@ -38,8 +56,8 @@ return (<>
 <table style={tableStyle}>
 <thead><tr><th style={thStyle}>البند</th><th style={thStyle}>عدد النقاط</th></tr></thead>
 <tbody>
-<tr><td style={tdStyle}>السباكة</td><td style={tdStyle}><input type="text" inputMode="decimal" dir="ltr" pattern="[0-9]*[.,]?[0-9]*" min="0" value={plumbingPts} onChange={e => handleInput(e, onPlumbingChange)} style={inputStyle} onFocus={(e) => e.target.select()} /></td></tr>
-<tr><td style={tdStyle}>الكهرباء</td><td style={tdStyle}><input type="text" inputMode="decimal" dir="ltr" pattern="[0-9]*[.,]?[0-9]*" min="0" value={electricalPts} onChange={e => handleInput(e, onElectricalChange)} style={inputStyle} onFocus={(e) => e.target.select()} /></td></tr>
+<tr><td style={tdStyle}>السباكة</td><td style={tdStyle}><input type="text" inputMode="decimal" dir="ltr" key="plumbing-pts" defaultValue={String(plumbingPts)} style={inputStyle} onFocus={(e) => e.target.select()} onKeyDown={handleKeyDown} onBlur={(e) => commitEdit(e, plumbingPts, onPlumbingChange)} /></td></tr>
+<tr><td style={tdStyle}>الكهرباء</td><td style={tdStyle}><input type="text" inputMode="decimal" dir="ltr" key="electrical-pts" defaultValue={String(electricalPts)} style={inputStyle} onFocus={(e) => e.target.select()} onKeyDown={handleKeyDown} onBlur={(e) => commitEdit(e, electricalPts, onElectricalChange)} /></td></tr>
 </tbody>
 </table>
 </div>
