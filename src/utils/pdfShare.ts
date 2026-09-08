@@ -1,146 +1,95 @@
-import { Capacitor } from '@capacitor/core';
-import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
-import { Share } from '@capacitor/share';
-
-const safeName = (name: string) =>
-  name.replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, '_');
-
-export const createPdfFromElement = async (
-  elementId: string,
-  title = 'تقرير المشروع'
-) => {
-  const element = document.getElementById(elementId);
-
-  if (!element) {
-    alert('لم يتم العثور على منطقة التقرير');
-    return;
-  }
-
-  try {
-    alert('1. جاري تجهيز التقرير...');
-    const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
-      import('html2canvas'),
-      import('jspdf')
-    ]);
-
-    const clone = element.cloneNode(true) as HTMLElement;
-
-    // مزامنة القوائم المنسدلة
-    const originalSelects = element.querySelectorAll('select');
-    const clonedSelects = clone.querySelectorAll('select');
-    originalSelects.forEach((select, index) => {
-      const clonedSelect = clonedSelects[index] as HTMLSelectElement;
-      if (clonedSelect) {
-        const selectedText = (select as HTMLSelectElement).selectedOptions[0]?.textContent || '';
-        const span = document.createElement('span');
-        span.textContent = selectedText;
-        span.style.display = 'inline-block';
-        span.style.padding = '6px 10px';
-        clonedSelect.replaceWith(span);
-      }
-    });
-
-    // مزامنة حقول الإدخال
-    const originalInputs = element.querySelectorAll('input, textarea');
-    const clonedInputs = clone.querySelectorAll('input, textarea');
-    originalInputs.forEach((input, index) => {
-      if (clonedInputs[index]) {
-        const original = input as HTMLInputElement | HTMLTextAreaElement;
-        const cloned = clonedInputs[index] as HTMLInputElement | HTMLTextAreaElement;
-        cloned.value = original.value;
-      }
-    });
-
-    clone.style.width = '760px';
-    clone.style.maxWidth = '760px';
-    clone.style.boxSizing = 'border-box';
-    clone.style.margin = '0 auto';
-    clone.style.height = 'auto';
-    clone.style.maxHeight = 'none';
-    clone.style.overflow = 'visible';
-    clone.style.background = '#ffffff';
-    clone.style.padding = '16px';
-    clone.style.direction = 'rtl';
-    clone.style.fontFamily = 'Cairo, Arial, sans-serif';
-
-    const wrapper = document.createElement('div');
-    wrapper.style.position = 'fixed';
-    wrapper.style.left = '-99999px';
-    wrapper.style.top = '0';
-    wrapper.style.width = '800px';
-    wrapper.style.background = '#ffffff';
-    wrapper.style.overflow = 'visible';
-    wrapper.style.zIndex = '-1';
-
-    wrapper.appendChild(clone);
-    document.body.appendChild(wrapper);
-    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-
-    alert('2. جاري تحويل التقرير لصورة...');
-    const canvas = await html2canvas(clone, {
-      scale: 2, useCORS: true, backgroundColor: '#ffffff', scrollY: 0, windowWidth: 800, logging: false,
-    });
-
-    const imgData = canvas.toDataURL('image/jpeg', 0.98);
-
-    alert('3. جاري إنشاء ملف الـ PDF...');
-    const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
-
-    const pageWidth = 210;
-    const pageHeight = 297;
-    const marginX = 6;
-    const marginY = 8;
-    const usableWidth = pageWidth - marginX * 2;
-    const usableHeight = pageHeight - marginY * 2;
-    const imgWidth = usableWidth;
-    const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-    let heightLeft = imgHeight;
-    let position = marginY;
-    pdf.addImage(imgData, 'JPEG', marginX, position, imgWidth, imgHeight, undefined, 'FAST');
-    heightLeft -= usableHeight;
-
-    while (heightLeft > 0) {
-      position = marginY - (imgHeight - heightLeft);
-      pdf.addPage();
-      pdf.addImage(imgData, 'JPEG', marginX, position, imgWidth, imgHeight, undefined, 'FAST');
-      heightLeft -= usableHeight;
-    }
-
-    alert('4. جاري تجهيز ملف الـ PDF للمشاركة...');
-    const fileName = `${safeName(title)}.pdf`;
-    
-    const base64Data = await new Promise<string>((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.readAsDataURL(pdf.output('blob'));
-    });
-
-    // ✅ الحل: استخدام مكتبات Capacitor لضمان العمل داخل تطبيق الأندرويد
-    if (Capacitor.isNativePlatform()) {
-      const savedFile = await Filesystem.writeFile({
-        path: fileName,
-        data: base64Data.split(',')[1],
-        directory: Directory.Cache,
-        encoding: Encoding.UTF8,
-      });
-
-      alert('5. تم الحفظ بنجاح، جاري فتح نافذة المشاركة...');
-      await Share.share({
-        title: title,
-        text: title,
-        url: savedFile.uri,
-        dialogTitle: 'مشاركة تقرير المشروع',
-      });
-    } else {
-      // للمتصفح فقط
-      pdf.save(fileName);
-    }
-
-    document.body.removeChild(wrapper);
-
-  } catch (error: any) {
-    console.error('PDF creation error:', error);
-    alert('حدث خطأ أثناء إنشاء ملف PDF: ' + (error?.message || 'خطأ غير معروف'));
-  }
+// pdfShare.ts
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
+const safeName = (name: string) => name.replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, '_');
+export const createPdfFromElement = async (elementId: string, title = 'تقرير المشروع') => {
+const element = document.getElementById(elementId);
+if (!element) { alert('لم يتم العثور على منطقة التقرير'); return; }
+try {
+const clone = element.cloneNode(true) as HTMLElement;
+const originalSelects = element.querySelectorAll('select');
+const clonedSelects = clone.querySelectorAll('select');
+originalSelects.forEach((select, index) => {
+const clonedSelect = clonedSelects[index] as HTMLSelectElement;
+if (clonedSelect) {
+const selectedText = (select as HTMLSelectElement).selectedOptions[0]?.textContent || '';
+const span = document.createElement('span');
+span.textContent = selectedText;
+span.style.display = 'inline-block';
+span.style.padding = '6px 10px';
+clonedSelect.replaceWith(span);
+}
+});
+const originalInputs = element.querySelectorAll('input, textarea');
+const clonedInputs = clone.querySelectorAll('input, textarea');
+originalInputs.forEach((input, index) => {
+if (clonedInputs[index]) {
+const original = input as HTMLInputElement | HTMLTextAreaElement;
+const cloned = clonedInputs[index] as HTMLInputElement | HTMLTextAreaElement;
+cloned.value = original.value;
+}
+});
+clone.style.width = '760px';
+clone.style.maxWidth = '760px';
+clone.style.boxSizing = 'border-box';
+clone.style.margin = '0 auto';
+clone.style.height = 'auto';
+clone.style.maxHeight = 'none';
+clone.style.overflow = 'visible';
+clone.style.background = '#ffffff';
+clone.style.padding = '16px';
+clone.style.direction = 'rtl';
+clone.style.fontFamily = 'Cairo, Arial, sans-serif';
+const wrapper = document.createElement('div');
+wrapper.style.position = 'fixed';
+wrapper.style.left = '-99999px';
+wrapper.style.top = '0';
+wrapper.style.width = '800px';
+wrapper.style.background = '#ffffff';
+wrapper.style.overflow = 'visible';
+wrapper.style.zIndex = '-1';
+wrapper.appendChild(clone);
+document.body.appendChild(wrapper);
+await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+const canvas = await html2canvas(clone, {
+scale: 2, useCORS: true, backgroundColor: '#ffffff', scrollY: 0, windowWidth: 800, logging: false,
+});
+const imgData = canvas.toDataURL('image/jpeg', 0.98);
+const pdf = new jsPDF({
+unit: 'mm', format: 'a4', orientation: 'portrait',
+});
+const pageWidth = 210;
+const pageHeight = 297;
+const marginX = 6;
+const marginY = 8;
+const usableWidth = pageWidth - marginX * 2;
+const usableHeight = pageHeight - marginY * 2;
+const imgWidth = usableWidth;
+const imgHeight = (canvas.height * imgWidth) / canvas.width;
+let heightLeft = imgHeight;
+let position = marginY;
+pdf.addImage(imgData, 'JPEG', marginX, position, imgWidth, imgHeight, undefined, 'FAST');
+heightLeft -= usableHeight;
+while (heightLeft > 0) {
+position = marginY - (imgHeight - heightLeft);
+pdf.addPage();
+pdf.addImage(imgData, 'JPEG', marginX, position, imgWidth, imgHeight, undefined, 'FAST');
+heightLeft -= usableHeight;
+}
+const fileName = `${safeName(title)}.pdf`;
+pdf.save(fileName);
+try {
+const pdfBlob = pdf.output('blob');
+const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
+if (typeof navigator !== 'undefined' && 'share' in navigator && navigator.canShare && navigator.canShare({ files: [file] })) {
+await navigator.share({ title, text: title, files: [file] });
+}
+} catch (shareError) {
+console.log('تعذر فتح نافذة المشاركة:', shareError);
+}
+document.body.removeChild(wrapper);
+} catch (error) {
+console.error('PDF creation error:', error);
+alert('حدث خطأ أثناء إنشاء ملف PDF');
+}
 };
