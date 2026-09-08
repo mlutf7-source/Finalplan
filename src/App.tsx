@@ -27,16 +27,12 @@ const zoom = Math.min(container.clientWidth / (width * 100), container.clientHei
 state.setView({ zoom: Math.max(0.35, Math.min(zoom, 1)), offsetX: -(minX + maxX) / 2, offsetY: -(minY + maxY) / 2 });
 };
 
-// ✅ حل مشكلة زر الخروج في الأندرويد (Back Button) + المتصفح
+// ✅ حل مشكلة زر الخروج في الأندرويد (Back Button) - بدون نافذة المتصفح المزعجة
 useEffect(() => {
-  const beforeUnloadHandler = (e: BeforeUnloadEvent) => {
-    if (state.isDirty) { e.preventDefault(); e.returnValue = ''; }
-  };
-  window.addEventListener('beforeunload', beforeUnloadHandler);
-
   const backButtonHandler = async () => {
     if (isSidebarOpen) { setIsSidebarOpen(false); return; }
     if (state.isDirty) {
+      // نافذة مخصصة واضحة
       const shouldExit = confirm('لديك تغييرات غير محفوظة. هل تريد الخروج من التطبيق؟');
       if (shouldExit) await CapApp.exitApp();
     } else {
@@ -47,7 +43,6 @@ useEffect(() => {
   CapApp.addListener('backButton', backButtonHandler);
 
   return () => {
-    window.removeEventListener('beforeunload', beforeUnloadHandler);
     CapApp.removeAllListeners();
   };
 }, [state.isDirty, isSidebarOpen]);
