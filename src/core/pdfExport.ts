@@ -1,3 +1,6 @@
+import { Capacitor } from '@capacitor/core';
+import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
 import { worldToScreen } from './geometry';
 import type { CanvasView, ClipFrame } from './types';
 
@@ -9,6 +12,7 @@ export async function exportToPDF(stage: HTMLElement, clipFrame: ClipFrame | nul
   await new Promise(resolve => setTimeout(resolve, 100));
 
   try {
+    alert('1. جاري إنشاء صورة المسقط...');
     const canvases = stage.querySelectorAll('canvas');
     if (!canvases.length) { alert('تعذر العثور على عناصر الرسم'); return; }
 
@@ -47,30 +51,39 @@ export async function exportToPDF(stage: HTMLElement, clipFrame: ClipFrame | nul
     if (!cropCtx) return;
     cropCtx.drawImage(exportCanvas, cropX * scale, cropY * scale, cropWidth * scale, cropHeight * scale, 0, 0, croppedCanvas.width, croppedCanvas.height);
 
-    // ✅ طريقة التحميل المباشر (تعمل بدون Filesystem و بدون Share)
-    const link = document.createElement('a');
-    link.download = 'المسقط_المعماري.png';
-    link.href = croppedCanvas.toDataURL('image/png');
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    // ✅ الحل: تحويل الصورة إلى Base64 وحفظها عبر Capacitor Filesystem
+    const imageData = croppedCanvas.toDataURL('image/png').split(',')[1];
+    const fileName = `Finalplan_${Date.now()}.png`;
 
-    // ✅ محاولة المشاركة المباشرة (Web Share API) إذا كانت متوفرة
-    try {
-      const blob = await new Promise<Blob>((resolve) => croppedCanvas.toBlob((b) => resolve(b!), 'image/png'));
-      const file = new File([blob], 'المسقط_المعماري.png', { type: 'image/png' });
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file], title: 'المسقط المعماري' });
-      }
-    } catch (shareError) {
-      // إذا فشلت المشاركة، الملف يكون قد تم تحميله مسبقاً
-      console.log('Share failed or cancelled', shareError);
+    if (Capacitor.isNativePlatform()) {
+      alert('2. تم إنشاء الصورة، جاري الحفظ في ذاكرة التطبيق...');
+      const savedFile = await Filesystem.writeFile({
+        path: fileName,
+        data: imageData,
+        directory: Directory.Cache,
+        encoding: Encoding.UTF8,
+      });
+
+      alert('3. تم الحفظ بنجاح! جاري فتح نافذة المشاركة...');
+      await Share.share({
+        title: 'المسقط المعماري',
+        text: 'تم إنشاء المسقط المعماري',
+        url: savedFile.uri,
+        dialogTitle: 'مشاركة المسقط',
+      });
+    } else {
+      // للمتصفح العادي فقط
+      alert('2. أنت تستخدم المتصفح، تم تحميل الصورة.');
+      const link = document.createElement('a');
+      link.download = 'المسقط_المعماري.png';
+      link.href = croppedCanvas.toDataURL('image/png');
+      link.click();
     }
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('PDF Export Error:', error);
-    alert('حدث خطأ أثناء إنشاء الملف');
+    alert('حدث خطأ: ' + (error?.message || 'خطأ غير معروف'));
   } finally {
     window.dispatchEvent(new CustomEvent('pdf-export-grid', { detail: true }));
   }
-                                                    }
+}
