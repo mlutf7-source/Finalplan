@@ -1,3 +1,4 @@
+// TopToolbar.tsx
 import React, { useState } from 'react';
 import { DrawToolbar } from './DrawToolbar';
 import { LayersPanel } from './LayersPanel';
@@ -55,6 +56,13 @@ export const TopToolbar: React.FC<Props> = ({
   };
   const itemStyle: React.CSSProperties = { padding: '4px', cursor: 'pointer', fontSize: 16 };
 
+  // دالة تحويل آمنة
+  const safeParse = (val: string, fallback: number) => {
+    if (val === '' || val === '.' || val === ',') return fallback;
+    const num = parseFloat(val.replace(',', '.'));
+    return isNaN(num) ? fallback : num;
+  };
+
   return (
     <div style={{ border: '1px solid rgba(192,192,192,0.6)', boxShadow: '0 0 8px rgba(192,192,192,0.3)', borderRadius: 12, padding: 6, background: 'rgba(255,255,255,0.7)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, flexWrap: 'nowrap' }}>
@@ -89,16 +97,19 @@ export const TopToolbar: React.FC<Props> = ({
               <div style={{ padding: '4px', display: 'flex', alignItems: 'center', gap: 4 }}>
                 <span style={{ fontSize: 16 }}>حجم الخط:</span>
                 <input
-                  type="text" inputMode="decimal" dir="ltr" pattern="[0-9]*[.,]?[0-9]*" value={dimensionFontSize}
+                  type="text"
+                  inputMode="decimal"
+                  dir="ltr"
+                  key={`font-size`}
+                  defaultValue={String(dimensionFontSize)}
                   onFocus={e => e.target.select()}
                   onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-                  onChange={e => {
-                    const val = e.target.value;
-                    if (/^[0-9]*[.,]?[0-9]*$/.test(val)) {
-                      onDimensionFontSizeChange(Number(val.replace(',', '.')));
-                    }
+                  onBlur={e => {
+                    const num = safeParse(e.target.value, 40);
+                    onDimensionFontSizeChange(num);
+                    e.target.value = String(num);
                   }}
-                  style={{ width: 40, padding: '2px', borderRadius: 4, border: '1px solid #ccc', textAlign: 'left' }}
+                  style={{ width: 50, padding: '2px', borderRadius: 4, border: '1px solid #ccc', textAlign: 'left' }}
                 />
               </div>
               <div onClick={() => { onAddNorthArrow(); setOpenMenu(null); }} style={itemStyle}>🧭 سهم الشمال</div>
