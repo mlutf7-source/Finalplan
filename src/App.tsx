@@ -1,16 +1,19 @@
-// App.tsx
 import { useState, useEffect, useRef } from 'react';
 import { useAppState } from './hooks/useAppState';
 import { CanvasContainer } from './components/Canvas/CanvasContainer';
 import { TopToolbar } from './components/Toolbar/TopToolbar';
 import { QuantitiesPanel } from './components/Calculator/QuantitiesPanel';
 import { exportToPDF } from './core/pdfExport';
+import { App as CapApp } from '@capacitor/app'; // ✅ استيراد مكتبة Capacitor للتعامل مع زر الرجوع
 import './App.css';
+
 const handleError = (msg: string) => alert(msg);
+
 export default function App() {
 const state = useAppState();
 const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 const canvasRef = useRef<HTMLDivElement>(null);
+
 const fitViewToWalls = () => {
 const extWalls = state.walls.filter(w => w.type === 'exterior');
 if (!extWalls.length) { state.setView({ zoom: 0.55, offsetX: 0, offsetY: 0 }); return; }
@@ -23,11 +26,37 @@ if (!container) return;
 const zoom = Math.min(container.clientWidth / (width * 100), container.clientHeight / (height * 100)) * 0.55;
 state.setView({ zoom: Math.max(0.35, Math.min(zoom, 1)), offsetX: -(minX + maxX) / 2, offsetY: -(minY + maxY) / 2 });
 };
+
+// ✅ حل مشكلة زر الخروج في الأندرويد (Back Button)
 useEffect(() => {
-const handler = (e: BeforeUnloadEvent) => { if (state.isDirty) { e.preventDefault(); e.returnValue = ''; } };
-window.addEventListener('beforeunload', handler);
-return () => { window.removeEventListener('beforeunload', handler); };
-}, [state.isDirty]);
+  const handleBackButton = async () => {
+    // إذا كانت القائمة الجانبية مفتوحة، قم بإغلاقها أولاً
+    if (isSidebarOpen) {
+      setIsSidebarOpen(false);
+      return;
+    }
+
+    // إذا كانت هناك تغييرات غير محفوظة، اسأل المستخدم قبل الخروج
+    if (state.isDirty) {
+      const shouldExit = confirm('لديك تغييرات غير محفوظة. هل تريد الخروج من التطبيق؟');
+      if (shouldExit) {
+        await CapApp.exitApp();
+      }
+    } else {
+      // الخروج مباشرة إذا لم تكن هناك تغييرات
+      await CapApp.exitApp();
+    }
+  };
+
+  // الاستماع لحدث زر الرجوع في Capacitor
+  CapApp.addListener('backButton', handleBackButton);
+
+  return () => {
+    // إزالة المستمع عند إغلاق المكون
+    CapApp.removeAllListeners();
+  };
+}, [isSidebarOpen, state.isDirty]);
+
 const askName = (title: string, initial: string) => window.prompt(title, initial);
 const save = () => { const name = askName('أدخل اسم المشروع:', state.currentProjectName || 'مسودة غير محفوظة'); if (name?.trim()) { state.handleSaveProject(name.trim()); alert('تم الحفظ!'); setIsSidebarOpen(false); } };
 const load = (id: string) => { if (state.isDirty && !confirm('حفظ قبل التحميل؟')) return; if (state.isDirty) { const name = askName('أدخل اسم المشروع لحفظ التعديلات:', state.currentProjectName); if (name?.trim()) state.handleSaveProject(name.trim()); } state.handleLoadProject(id); state.setAllLayersLocked(true); setIsSidebarOpen(false); setTimeout(() => fitViewToWalls(), 150); };
@@ -35,13 +64,17 @@ const del = (id: string) => { if (confirm('حذف المشروع؟')) { state.ha
 const newProject = () => { if (state.isDirty && !confirm('حفظ التعديلات قبل مشروع جديد؟')) return; if (state.isDirty) { const name = askName('أدخل اسم المشروع لحفظ التعديلات:', state.currentProjectName); if (name?.trim()) state.handleSaveProject(name.trim()); } state.handleNewProject(); setIsSidebarOpen(false); setTimeout(() => fitViewToWalls(), 150); };
 const toggleClip = () => { state.setClipFrame(state.clipFrame ? null : { id: 'clip-main', x: state.walls[0] ? (state.walls[0].start.x + state.walls[0].end.x) / 2 : 5, y: state.walls[0] ? (state.walls[0].start.y + state.walls[0].end.y) / 2 : 5, width: 6, height: 6 * 1.414, rotation: 0 }); setIsSidebarOpen(false); };
 const pdf = async () => { if (!state.clipFrame) return handleError('يرجى تفعيل الكليشة أولاً'); const stage = document.querySelector('[data-floor-plan-stage="true"]') as HTMLElement; if (!stage) return handleError('تعذر العثور على منطقة الرسم'); await exportToPDF(stage, state.clipFrame, state.view); setIsSidebarOpen(false); };
+
 const canvas = (
 <CanvasContainer walls={state.walls} onWallsChange={state.handleWallsChange} mode={state.mode} drawingType={state.drawingType} onModeChange={state.setMode} onCancelTool={() => state.setMode('view')} dimensions={state.dimensions} onAddDimension={state.handleAddDimension} onDimensionsChange={state.handleDimensionsChange} dimensionFontSize={state.dimensionFontSize} layers={state.layers} columns={state.elements.columns} windows={state.elements.windows} doors={state.elements.doors} texts={state.textManager.texts} regions={state.regionsManager.regions} stairs={state.stairManager.stairs} northArrows={state.elements.northArrows} updateNorthArrow={state.handleUpdateNorthArrow} frozen={false} onAddStairAtPoint={state.handleAddStairAtPoint} onUpdateStair={state.handleUpdateStair} onDeleteStair={state.handleDeleteStair} onPlaceColumn={state.handlePlaceColumn} onPlaceWindow={state.handlePlaceWindow} onPlaceDoor={state.handlePlaceDoor} onPlaceRegion={state.handlePlaceRegion} onDeleteRegion={state.handleDeleteRegion} updateColumn={state.handleUpdateColumn} updateWindow={state.handleUpdateWindow} updateDoor={state.handleUpdateDoor} onDeleteColumn={state.handleDeleteColumn} onDeleteWindow={state.handleDeleteWindow} onDeleteDoor={state.handleDeleteDoor} onAddText={state.handleAddText} onUpdateText={state.handleUpdateText} onDeleteText={state.handleDeleteText} onCopyText={state.handleCopyText} clipFrame={state.clipFrame} setClipFrame={state.setClipFrame} />
 );
+
 const quantities = { showQuantities: state.showQuantities, onToggle: () => state.setShowQuantities(prev => !prev), activeTab: state.activeTab, onTabChange: state.setActiveTab, walls: state.walls, columns: state.elements.columns, windows: state.elements.windows, doors: state.elements.doors, regions: state.regionsManager.regions, results: state.results, canShowQuantities: !!state.projectManager.currentProjectId };
+
 const topbar = (
 <TopToolbar mode={state.mode} drawingType={state.drawingType} onStartDrawing={t => { state.setDrawingType(t); state.setMode('drawing'); }} onUndo={state.handleUndo} onRedo={state.handleRedo} historyLength={state.history.length} futureLength={state.future.length} onAddAllDimensions={state.handleAddAllDimensions} onModeChange={state.setMode} layers={state.layers} onToggleLayer={state.toggleLayer} onToggleAllLayers={state.toggleAllLayers} allUnlocked={state.allUnlocked} dimensionFontSize={state.dimensionFontSize} onDimensionFontSizeChange={state.setDimensionFontSize} onAddNorthArrow={state.handleAddNorthArrow} />
 );
+
 const sidebar = isSidebarOpen && (
 <>
 <div onClick={() => setIsSidebarOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.3)', zIndex: 1000 }} />
@@ -59,6 +92,7 @@ const sidebar = isSidebarOpen && (
 </div>
 </>
 );
+
 return (
 <div className="app" style={{ height: '100dvh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
 <header className="header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
@@ -74,6 +108,7 @@ return (
 </div>
 );
 }
+
 const btnStyles = {
 btn: { padding: '10px', borderRadius: 6, border: '1px solid #ccc', background: '#f0f0f0', cursor: 'pointer', fontSize: 14 },
 btnPrimary: { padding: '10px', borderRadius: 6, border: '1px solid #00509e', background: '#00509e', color: '#fff', cursor: 'pointer', fontSize: 14 },
