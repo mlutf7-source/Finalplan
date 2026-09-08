@@ -1,6 +1,5 @@
 import { Capacitor } from '@capacitor/core';
-import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
-import { Share } from '@capacitor/share';
+// ملاحظة: لا نستخدم Filesystem أو Share هنا في هذا الحل
 
 const safeName = (name: string) =>
   name.replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, '_');
@@ -17,7 +16,7 @@ export const createPdfFromElement = async (
   }
 
   try {
-    // تحميل المكتبات كسولاً (Dynamic Import) لتقليل حجم التطبيق
+    // تحميل المكتبات كسولاً (Dynamic Import)
     const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
       import('html2canvas'),
       import('jspdf')
@@ -84,7 +83,6 @@ export const createPdfFromElement = async (
       requestAnimationFrame(() => resolve());
     });
 
-    // تحويل التقرير إلى صورة عالية الدقة
     const canvas = await html2canvas(clone, {
       scale: 2,
       useCORS: true,
@@ -96,12 +94,7 @@ export const createPdfFromElement = async (
 
     const imgData = canvas.toDataURL('image/jpeg', 0.98);
 
-    // إنشاء ملف PDF A4
-    const pdf = new jsPDF({
-      unit: 'mm',
-      format: 'a4',
-      orientation: 'portrait',
-    });
+    const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
 
     const pageWidth = 210;
     const pageHeight = 297;
@@ -127,36 +120,27 @@ export const createPdfFromElement = async (
       heightLeft -= usableHeight;
     }
 
-    // ✅ التحقق مما إذا كنا داخل تطبيق Android (Native)
-    if (Capacitor.isNativePlatform()) {
-      // حفظ الملف في مجلد Cache الخاص بالتطبيق (آمن 100%)
-      const pdfBlob = pdf.output('blob');
-      const base64Data = await new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.readAsDataURL(pdfBlob);
-      });
+    // ✅ طريقة التحميل المباشر (تعمل بدون Filesystem)
+    const fileName = `${safeName(title)}.pdf`;
+    
+    const blob = pdf.output('blob');
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
 
-      const fileName = `${safeName(title)}.pdf`;
-
-      const savedFile = await Filesystem.writeFile({
-        path: fileName,
-        data: base64Data.split(',')[1], // إزالة رأس الـ Base64
-        directory: Directory.Cache,
-        encoding: Encoding.UTF8,
-      });
-
-      // فتح نافذة المشاركة الأصلية في أندرويد
-      await Share.share({
-        title: title,
-        text: title,
-        url: savedFile.uri,
-        dialogTitle: 'مشاركة تقرير المشروع',
-      });
-
-    } else {
-      // ✅ للمتصفح العادي (الحفظ المباشر)
-      pdf.save(`${safeName(title)}.pdf`);
+    // ✅ محاولة المشاركة المباشرة (Web Share API)
+    try {
+      const file = new File([blob], fileName, { type: 'application/pdf' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title, text: title });
+      }
+    } catch (shareError) {
+      console.log('Share failed or cancelled', shareError);
     }
 
     document.body.removeChild(wrapper);
