@@ -58,6 +58,13 @@ const btnStyle: React.CSSProperties = {
   fontSize: 14,
 };
 
+// دالة تحويل آمنة (لا تعيد NaN أبداً)
+const safeParse = (val: string, fallback: number) => {
+  if (val === '' || val === '.' || val === ',') return fallback;
+  const num = parseFloat(val.replace(',', '.'));
+  return isNaN(num) ? fallback : num;
+};
+
 export const FinishInputs: React.FC<Props> = ({
   floorHeight,
   hasMarble,
@@ -65,6 +72,17 @@ export const FinishInputs: React.FC<Props> = ({
   onHasMarbleChange,
   onCalculate,
 }) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+  };
+
+  // دالة الحفظ عند مغادرة الحقل
+  const commitEdit = (e: React.FocusEvent<HTMLInputElement>, fallback: number, onChange: (n: number) => void) => {
+    const num = safeParse(e.target.value, fallback);
+    onChange(num);
+    e.target.value = String(num);
+  };
+
   return (
     <div style={cardStyle}>
       <div style={headStyle}>مدخلات التشطيبات</div>
@@ -75,16 +93,12 @@ export const FinishInputs: React.FC<Props> = ({
             type="text"
             inputMode="decimal"
             dir="ltr"
-            pattern="[0-9]*[.,]?[0-9]*"
-            value={floorHeight}
-            onChange={e => {
-              const val = e.target.value;
-              if (/^[0-9]*[.,]?[0-9]*$/.test(val)) {
-                onFloorHeightChange(Number(val.replace(',', '.')));
-              }
-            }}
+            key="floor-height"
+            defaultValue={String(floorHeight)}
             style={inputStyle}
             onFocus={(e) => e.target.select()}
+            onKeyDown={handleKeyDown}
+            onBlur={(e) => commitEdit(e, floorHeight, onFloorHeightChange)}
           />
         </div>
         <div style={{ marginBottom: 16 }}>
