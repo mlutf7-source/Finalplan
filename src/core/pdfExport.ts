@@ -1,6 +1,3 @@
-import { Capacitor } from '@capacitor/core';
-import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
-import { Share } from '@capacitor/share';
 import { worldToScreen } from './geometry';
 import type { CanvasView, ClipFrame } from './types';
 
@@ -50,39 +47,30 @@ export async function exportToPDF(stage: HTMLElement, clipFrame: ClipFrame | nul
     if (!cropCtx) return;
     cropCtx.drawImage(exportCanvas, cropX * scale, cropY * scale, cropWidth * scale, cropHeight * scale, 0, 0, croppedCanvas.width, croppedCanvas.height);
 
-    // تحويل الصورة إلى Base64
-    const imageData = croppedCanvas.toDataURL('image/png').split(',')[1];
-    const fileName = `Finalplan_${Date.now()}.png`;
+    // ✅ طريقة التحميل المباشر (تعمل بدون Filesystem و بدون Share)
+    const link = document.createElement('a');
+    link.download = 'المسقط_المعماري.png';
+    link.href = croppedCanvas.toDataURL('image/png');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
 
-    if (Capacitor.isNativePlatform()) {
-      // ✅ الحفظ داخل التطبيق باستخدام Filesystem (طريقة آمنة للأندرويد)
-      const savedFile = await Filesystem.writeFile({
-        path: fileName,
-        data: imageData,
-        directory: Directory.Cache,
-        encoding: Encoding.UTF8
-      });
-
-      // ✅ فتح نافذة المشاركة لتحويله إلى PDF أو حفظه
-      await Share.share({
-        title: 'المسقط المعماري',
-        text: 'تم إنشاء المسقط المعماري',
-        url: savedFile.uri,
-        dialogTitle: 'مشاركة المسقط'
-      });
-
-    } else {
-      // ✅ للمتصفح (يستخدم رابط التحميل)
-      const link = document.createElement('a');
-      link.download = 'المسقط_المعماري.png';
-      link.href = croppedCanvas.toDataURL('image/png');
-      link.click();
+    // ✅ محاولة المشاركة المباشرة (Web Share API) إذا كانت متوفرة
+    try {
+      const blob = await new Promise<Blob>((resolve) => croppedCanvas.toBlob((b) => resolve(b!), 'image/png'));
+      const file = new File([blob], 'المسقط_المعماري.png', { type: 'image/png' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: 'المسقط المعماري' });
+      }
+    } catch (shareError) {
+      // إذا فشلت المشاركة، الملف يكون قد تم تحميله مسبقاً
+      console.log('Share failed or cancelled', shareError);
     }
 
   } catch (error) {
     console.error('PDF Export Error:', error);
-    alert('حدث خطأ أثناء إنشاء الملف. تأكد من منح أذونات التخزين.');
+    alert('حدث خطأ أثناء إنشاء الملف');
   } finally {
     window.dispatchEvent(new CustomEvent('pdf-export-grid', { detail: true }));
   }
-    }
+                                                    }
