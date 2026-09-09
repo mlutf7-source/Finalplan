@@ -56,11 +56,10 @@ interface Props {
                                                             const correctedPlasterCement = Math.ceil(correctedPlasterArea * 0.15);
                                                               const correctedPlasterSand = Math.ceil(correctedPlasterCement * 0.15);
 
-                                                                const correctedPaintTotal = correctedPaintWalls + Math.max(0, results.paintCeiling - results.innerWallArea);
-                                                                  const correctedPutty = Math.ceil(correctedPaintTotal * 0.5);
-                                                                    const correctedPrimer = Math.ceil(correctedPaintTotal / 10);
-                                                                      const correctedPaint = Math.ceil(correctedPaintTotal / 20);
-
+            const correctedPaintTotal = correctedPaintWalls + Math.max(0, results.paintCeiling - results.innerWallArea);
+const correctedPutty = Math.ceil(correctedPaintTotal * 0.8);
+const correctedPrimer = Math.ceil(correctedPaintTotal / 8);
+const correctedPaint = Math.ceil(correctedPaintTotal / 8);
                                                                         return (
                                                                             <>
                                                                                   {/* جدول التلييس */}
