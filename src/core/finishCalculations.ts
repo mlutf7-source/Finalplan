@@ -74,6 +74,8 @@ export interface FinishResults {
   correctedPlasterWalls: number;
   correctedPlasterCeiling: number;
   correctedPlasterArea: number;
+  correctedPlasterCement: number;
+  correctedPlasterSand: number;
   correctedPaintWalls: number;
   correctedPaintCeiling: number;
   correctedPaintTotal: number;
@@ -359,6 +361,8 @@ export function calculateFinishes(
     correctedPlasterWalls,
     correctedPlasterCeiling,
     correctedPlasterArea,
+    correctedPlasterCement,
+    correctedPlasterSand,
     correctedPaintWalls,
     correctedPaintCeiling,
     correctedPaintTotal,
