@@ -38,62 +38,14 @@ const del = (id: string) => { if (confirm('حذف المشروع؟')) { state.ha
 const newProject = () => { if (state.isDirty && !confirm('حفظ التعديلات قبل مشروع جديد؟')) return; if (state.isDirty) { const name = askName('أدخل اسم المشروع لحفظ التعديلات:', state.currentProjectName); if (name?.trim()) state.handleSaveProject(name.trim()); } state.handleNewProject(); setIsSidebarOpen(false); setTimeout(() => fitViewToWalls(), 150); };
 const toggleClip = () => { state.setClipFrame(state.clipFrame ? null : { id: 'clip-main', x: state.walls[0] ? (state.walls[0].start.x + state.walls[0].end.x) / 2 : 5, y: state.walls[0] ? (state.walls[0].start.y + state.walls[0].end.y) / 2 : 5, width: 6, height: 6 * 1.414, rotation: 0 }); setIsSidebarOpen(false); };
 const pdf = async () => { if (!state.clipFrame) return handleError('يرجى تفعيل الكليشة أولاً'); const stage = document.querySelector('[data-floor-plan-stage="true"]') as HTMLElement; if (!stage) return handleError('تعذر العثور على منطقة الرسم'); await exportToPDF(stage, state.clipFrame, state.view); setIsSidebarOpen(false); };
-
-// ✅ دالة استيراد الصورة
-const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-const file = e.target.files?.[0];
-if (!file) return;
-const reader = new FileReader();
-reader.onloadend = () => {
-state.setPlanImage({ url: reader.result as string, x: 0, y: 0, width: 10, height: 10, opacity: 0.5, locked: false });
-};
-reader.readAsDataURL(file);
-};
-
-const canvas = (
-<CanvasContainer walls={state.walls} onWallsChange={state.handleWallsChange} mode={state.mode} drawingType={state.drawingType} onModeChange={state.setMode} onCancelTool={() => state.setMode('view')} dimensions={state.dimensions} onAddDimension={state.handleAddDimension} onDimensionsChange={state.handleDimensionsChange} dimensionFontSize={state.dimensionFontSize} layers={state.layers} columns={state.elements.columns} windows={state.elements.windows} doors={state.elements.doors} texts={state.textManager.texts} regions={state.regionsManager.regions} stairs={state.stairManager.stairs} northArrows={state.elements.northArrows} updateNorthArrow={state.handleUpdateNorthArrow} frozen={false} onAddStairAtPoint={state.handleAddStairAtPoint} onUpdateStair={state.handleUpdateStair} onDeleteStair={state.handleDeleteStair} onPlaceColumn={state.handlePlaceColumn} onPlaceWindow={state.handlePlaceWindow} onPlaceDoor={state.handlePlaceDoor} onPlaceRegion={state.handlePlaceRegion} onDeleteRegion={state.handleDeleteRegion} updateColumn={state.handleUpdateColumn} updateWindow={state.handleUpdateWindow} updateDoor={state.handleUpdateDoor} onDeleteColumn={state.handleDeleteColumn} onDeleteWindow={state.handleDeleteWindow} onDeleteDoor={state.handleDeleteDoor} onAddText={state.handleAddText} onUpdateText={state.handleUpdateText} onDeleteText={state.handleDeleteText} onCopyText={state.handleCopyText} clipFrame={state.clipFrame} setClipFrame={state.setClipFrame} planImage={state.planImage} />
-);
+const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => { const file = e.target.files?.[0]; if (!file) return; const reader = new FileReader(); reader.onloadend = () => { state.setPlanImage({ url: reader.result as string, x: 0, y: 0, width: 10, height: 10, opacity: 0.5, locked: false }); }; reader.readAsDataURL(file); };
+const handleScaleImage = () => { if (!state.planImage) return alert('لا توجد صورة!'); if (state.walls.length === 0) return alert('ارسم جداراً فوق الجدار الموجود في الصورة أولاً!'); const drawnWall = state.walls[state.walls.length - 1]; const drawnLength = Math.hypot(drawnWall.end.x - drawnWall.start.x, drawnWall.end.y - drawnWall.start.y); const imageWallLength = parseFloat(prompt('أدخل طول الجدار الحقيقي بالمتر:', '3')); if (isNaN(imageWallLength) || imageWallLength <= 0) return; const calibration = imageWallLength / drawnLength; state.setPlanImage({ ...state.planImage, width: state.planImage.width * calibration, height: state.planImage.height * calibration }); alert('تم ضبط مقياس الرسم بنجاح!'); };
+const handleLockImage = () => { if (state.planImage) state.setPlanImage({ ...state.planImage, locked: !state.planImage.locked }); };
+const handleDeleteImage = () => { state.setPlanImage(null); };
+const canvas = (<CanvasContainer walls={state.walls} onWallsChange={state.handleWallsChange} mode={state.mode} drawingType={state.drawingType} onModeChange={state.setMode} onCancelTool={() => state.setMode('view')} dimensions={state.dimensions} onAddDimension={state.handleAddDimension} onDimensionsChange={state.handleDimensionsChange} dimensionFontSize={state.dimensionFontSize} layers={state.layers} columns={state.elements.columns} windows={state.elements.windows} doors={state.elements.doors} texts={state.textManager.texts} regions={state.regionsManager.regions} stairs={state.stairManager.stairs} northArrows={state.elements.northArrows} updateNorthArrow={state.handleUpdateNorthArrow} frozen={false} onAddStairAtPoint={state.handleAddStairAtPoint} onUpdateStair={state.handleUpdateStair} onDeleteStair={state.handleDeleteStair} onPlaceColumn={state.handlePlaceColumn} onPlaceWindow={state.handlePlaceWindow} onPlaceDoor={state.handlePlaceDoor} onPlaceRegion={state.handlePlaceRegion} onDeleteRegion={state.handleDeleteRegion} updateColumn={state.handleUpdateColumn} updateWindow={state.handleUpdateWindow} updateDoor={state.handleUpdateDoor} onDeleteColumn={state.handleDeleteColumn} onDeleteWindow={state.handleDeleteWindow} onDeleteDoor={state.handleDeleteDoor} onAddText={state.handleAddText} onUpdateText={state.handleUpdateText} onDeleteText={state.handleDeleteText} onCopyText={state.handleCopyText} clipFrame={state.clipFrame} setClipFrame={state.setClipFrame} planImage={state.planImage} />);
 const quantities = { showQuantities: state.showQuantities, onToggle: () => state.setShowQuantities(prev => !prev), activeTab: state.activeTab, onTabChange: state.setActiveTab, walls: state.walls, columns: state.elements.columns, windows: state.elements.windows, doors: state.elements.doors, regions: state.regionsManager.regions, results: state.results, canShowQuantities: !!state.projectManager.currentProjectId };
-const topbar = (
-<TopToolbar mode={state.mode} drawingType={state.drawingType} onStartDrawing={t => { state.setDrawingType(t); state.setMode('drawing'); }} onUndo={state.handleUndo} onRedo={state.handleRedo} historyLength={state.history.length} futureLength={state.future.length} onAddAllDimensions={state.handleAddAllDimensions} onModeChange={state.setMode} layers={state.layers} onToggleLayer={state.toggleLayer} onToggleAllLayers={state.toggleAllLayers} allUnlocked={state.allUnlocked} dimensionFontSize={state.dimensionFontSize} onDimensionFontSizeChange={state.setDimensionFontSize} onAddNorthArrow={state.handleAddNorthArrow} />
-);
-const sidebar = isSidebarOpen && (
-<>
-<div onClick={() => setIsSidebarOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.3)', zIndex: 1000 }} />
-<div onClick={e => e.stopPropagation()} style={{ position: 'fixed', top: 0, right: 0, width: '33vw', maxWidth: 400, height: '100%', background: '#fff', boxShadow: '-2px 0 10px rgba(0,0,0,0.1)', zIndex: 1001, display: 'flex', flexDirection: 'column', padding: 20, gap: 15 }}>
-<h3 style={{ margin: 0, color: '#003366' }}>إدارة المشاريع</h3>
-<button onClick={newProject} style={btnStyles.btn}>➕ مشروع جديد</button>
-<button onClick={save} style={btnStyles.btnPrimary}>💾 حفظ المشروع</button>
-<select onChange={e => e.target.value && load(e.target.value)} style={{ padding: 8, borderRadius: 6, border: '1px solid #ccc' }}><option value="">📂 اختر مشروعاً</option>{state.projectManager.projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
-{state.projectManager.currentProjectId && <button onClick={() => del(state.projectManager.currentProjectId!)} style={btnStyles.btnDanger}>🗑️ حذف المشروع المحدد</button>}
-<div style={{ borderTop: '1px solid #eee', paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
-<button onClick={toggleClip} style={{ padding: 10, borderRadius: 6, border: '1px solid #f00', background: state.clipFrame ? '#f00' : '#fff', color: state.clipFrame ? '#fff' : '#f00' }}>{state.clipFrame ? '🗑️ إزالة الكليشة' : '📐 إضافة الكليشة (A3)'}</button>
-<button onClick={pdf} style={btnStyles.btn}>📄 PDF المسقط</button>
-<label style={{ ...btnStyles.btn, textAlign: 'center', cursor: 'pointer' }}>🖼️ استيراد مخطط
-<input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleImageUpload} />
-</label>
-</div>
-<button onClick={() => setIsSidebarOpen(false)} style={{ marginTop: 'auto', ...btnStyles.btn }}>✖ إغلاق</button>
-</div>
-</>
-);
-return (
-<div className="app" style={{ height: '100dvh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-<header className="header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-<h1>🏗 المسقط المعماري التفاعلي</h1>
-<button onClick={() => setIsSidebarOpen(true)} style={{ background: '#00509e', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 12px', cursor: 'pointer', fontSize: 18 }}>☰</button>
-</header>
-{sidebar}
-<div style={{ flexShrink: 0 }}>{topbar}</div>
-<div ref={canvasRef} style={{ flex: 1, minHeight: 0, position: 'relative', overflow: 'hidden' }}>
-<div style={{ flexShrink: 0 }}>{canvas}</div>
-<QuantitiesPanel {...quantities} display="all" />
-</div>
-</div>
-);
+const topbar = (<TopToolbar mode={state.mode} drawingType={state.drawingType} onStartDrawing={t => { state.setDrawingType(t); state.setMode('drawing'); }} onUndo={state.handleUndo} onRedo={state.handleRedo} historyLength={state.history.length} futureLength={state.future.length} onAddAllDimensions={state.handleAddAllDimensions} onModeChange={state.setMode} layers={state.layers} onToggleLayer={state.toggleLayer} onToggleAllLayers={state.toggleAllLayers} allUnlocked={state.allUnlocked} dimensionFontSize={state.dimensionFontSize} onDimensionFontSizeChange={state.setDimensionFontSize} onAddNorthArrow={state.handleAddNorthArrow} />);
+const sidebar = isSidebarOpen && (<><div onClick={() => setIsSidebarOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.3)', zIndex: 1000 }} /><div onClick={e => e.stopPropagation()} style={{ position: 'fixed', top: 0, right: 0, width: '33vw', maxWidth: 400, height: '100%', background: '#fff', boxShadow: '-2px 0 10px rgba(0,0,0,0.1)', zIndex: 1001, display: 'flex', flexDirection: 'column', padding: 20, gap: 15 }}><h3 style={{ margin: 0, color: '#003366' }}>إدارة المشاريع</h3><button onClick={newProject} style={btnStyles.btn}>➕ مشروع جديد</button><button onClick={save} style={btnStyles.btnPrimary}>💾 حفظ المشروع</button><select onChange={e => e.target.value && load(e.target.value)} style={{ padding: 8, borderRadius: 6, border: '1px solid #ccc' }}><option value="">📂 اختر مشروعاً</option>{state.projectManager.projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select>{state.projectManager.currentProjectId && <button onClick={() => del(state.projectManager.currentProjectId!)} style={btnStyles.btnDanger}>🗑️ حذف المشروع المحدد</button>}<div style={{ borderTop: '1px solid #eee', paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}><button onClick={toggleClip} style={{ padding: 10, borderRadius: 6, border: '1px solid #f00', background: state.clipFrame ? '#f00' : '#fff', color: state.clipFrame ? '#fff' : '#f00' }}>{state.clipFrame ? '🗑️ إزالة الكليشة' : '📐 إضافة الكليشة (A3)'}</button><button onClick={pdf} style={btnStyles.btn}>📄 PDF المسقط</button><label style={{ ...btnStyles.btn, textAlign: 'center', cursor: 'pointer' }}>🖼️ استيراد مخطط<input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleImageUpload} /></label>{state.planImage && (<><button onClick={handleScaleImage} style={btnStyles.btn}>📏 ضبط مقياس الرسم</button><button onClick={handleLockImage} style={btnStyles.btn}>{state.planImage.locked ? '🔓 فك قفل الصورة' : '🔒 قفل الصورة'}</button><button onClick={handleDeleteImage} style={btnStyles.btnDanger}>🗑️ حذف الصورة</button></>)}</div><button onClick={() => setIsSidebarOpen(false)} style={{ marginTop: 'auto', ...btnStyles.btn }}>✖ إغلاق</button></div></>);
+return (<div className="app" style={{ height: '100dvh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}><header className="header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}><h1>🏗 المسقط المعماري التفاعلي</h1><button onClick={() => setIsSidebarOpen(true)} style={{ background: '#00509e', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 12px', cursor: 'pointer', fontSize: 18 }}>☰</button></header>{sidebar}<div style={{ flexShrink: 0 }}>{topbar}</div><div ref={canvasRef} style={{ flex: 1, minHeight: 0, position: 'relative', overflow: 'hidden' }}><div style={{ flexShrink: 0 }}>{canvas}</div><QuantitiesPanel {...quantities} display="all" /></div></div>);
 }
-const btnStyles = {
-btn: { padding: '10px', borderRadius: 6, border: '1px solid #ccc', background: '#f0f0f0', cursor: 'pointer', fontSize: 14 },
-btnPrimary: { padding: '10px', borderRadius: 6, border: '1px solid #00509e', background: '#00509e', color: '#fff', cursor: 'pointer', fontSize: 14 },
-btnDanger: { padding: '10px', borderRadius: 6, border: '1px solid #dc3545', background: '#dc3545', color: '#fff', cursor: 'pointer', fontSize: 14 },
-};
+const btnStyles = { btn: { padding: '10px', borderRadius: 6, border: '1px solid #ccc', background: '#f0f0f0', cursor: 'pointer', fontSize: 14 }, btnPrimary: { padding: '10px', borderRadius: 6, border: '1px solid #00509e', background: '#00509e', color: '#fff', cursor: 'pointer', fontSize: 14 }, btnDanger: { padding: '10px', borderRadius: 6, border: '1px solid #dc3545', background: '#dc3545', color: '#fff', cursor: 'pointer', fontSize: 14 } };
