@@ -25,13 +25,15 @@ export const DEFAULT_STAIR = { width: 2.0, totalLength: 3.5, landingLength: 1.0,
 export const DEFAULT_NORTH_ARROW = { size: 30, rotation: 0 };
 export const DEFAULT_CLIP_FRAME = { width: 6, height: 6 * 1.414, rotation: 0 };
 
-// ✅ إضافة نوع الصورة المستوردة
+// ✅ إضافة الصورة المستوردة مع الخصائص الجديدة
 export interface PlanImage {
+  id: string;
   url: string;
-  x: number; // الإزاحة
+  x: number;
   y: number;
-  width: number; // العرض بالوحدات
-  height: number; // الارتفاع بالوحدات
-  opacity: number; // الشفافية (0.0 - 1.0)
-  locked?: boolean; // قفل تحريك الصورة
-}
+  width: number;
+  height: number;
+  opacity: number;
+  locked?: boolean;
+  isSelected?: boolean;
+  }
