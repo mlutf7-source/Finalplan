@@ -235,10 +235,9 @@ const paintCeiling = ceilingArea;
 const paintTotal = paintWalls + paintCeiling;
 
 // ✅ المعادلات الجديدة (الوحدة: كجم)
-const putty = paintTotal / 0.8;  // كل 0.8 م² -> 1 كجم معجون
+const putty = paintTotal * 0.8;  // كل 1 م² -> 0.8 كجم معجون
 const primer = paintTotal / 8;   // كل 8 م² -> 1 كجم أساس / برايمر
 const paint = paintTotal / 8;    // كل 8 م² -> 1 كجم زيتي / طلاء
-
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               // ===== البلاط =====
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 const tileFloorArea = Math.max(0, floorArea - kitchenArea - bathroomArea);
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   const tileKitchenFloor = kitchenArea;
