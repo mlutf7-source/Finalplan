@@ -73,8 +73,8 @@ const handleLoadProject = useCallback((id: string) => { const data = projectMana
 const handleDeleteProject = useCallback((id: string) => { projectManager.deleteProject(id); setCurrentProjectName(''); }, [projectManager]);
 const handleNewProject = useCallback(() => { setWalls([]); setDimensions([]); elements.setAllElements([], [], [], []); regionsManager.setRegions([]); textManager.setAllTexts([]); stairManager.setAllStairs([]); projectManager.createNewProject(); savedSnapshotRef.current = ''; setCurrentProjectName(''); setIsDirty(false); }, [elements, regionsManager, textManager, stairManager, projectManager]);
 
-// ✅ إضافة حالة الصورة
+// ✅ حالة الصورة
 const [planImage, setPlanImage] = useState<PlanImage | null>(null);
 
 return { walls, setWalls, mode, setMode, drawingType, setDrawingType, dimensions, setDimensions, dimensionFontSize, setDimensionFontSize, layers, toggleLayer, toggleAllLayers, allUnlocked, setAllLayersLocked, showQuantities, setShowQuantities, activeTab, setActiveTab, elements, regionsManager, textManager, stairManager, results, history, future, handleUndo, handleRedo, handleWallsChange, handleDimensionsChange, handleAddDimension, handleAddAllDimensions, handlePlaceColumn, handlePlaceWindow, handlePlaceDoor, handlePlaceRegion, handleDeleteRegion, handleAddText, handleUpdateText, handleDeleteText, handleCopyText, handleUpdateColumn, handleUpdateWindow, handleUpdateDoor, handleDeleteColumn, handleDeleteWindow, handleDeleteDoor, handleAddStairAtPoint, handleUpdateStair, handleDeleteStair, handleAddNorthArrow, handleUpdateNorthArrow, handleCancelTool, toolsActive, projectManager, handleSaveProject, handleLoadProject, handleDeleteProject, handleNewProject, isDirty, currentProjectName, clipFrame, setClipFrame: handleSetClipFrame, view, setView, planImage, setPlanImage };
-  }
+                                                                                                                                                                                                                 }
