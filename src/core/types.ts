@@ -9,7 +9,6 @@ export interface TextElement { id: string; position: Point; text: string; fontSi
 export interface Stair { id: string; polygon: Point[]; center: Point; width: number; totalLength: number; landingLength: number; treadDepth: number; riserHeight: number; rotation: number; }
 export interface NorthArrow { id: string; position: Point; rotation: number; size: number; }
 export interface ClipFrame { id: string; x: number; y: number; width: number; height: number; rotation: number; }
-export interface PlanImage { url: string; x: number; y: number; width: number; height: number; opacity: number; }
 export type AppMode = 'view' | 'drawing' | 'edit' | 'dimension' | 'column' | 'window' | 'door' | 'kitchen' | 'bathroom' | 'text' | 'stair';
 export type DrawingType = 'exterior' | 'interior' | null;
 export type EditType = 'none' | 'move' | 'extendStart' | 'extendEnd';
@@ -25,3 +24,14 @@ export const DEFAULT_TEXT = { fontSize: 0.5, color: '#000000', rotation: 0 };
 export const DEFAULT_STAIR = { width: 2.0, totalLength: 3.5, landingLength: 1.0, treadDepth: 0.27, riserHeight: 0.17, rotation: 0 };
 export const DEFAULT_NORTH_ARROW = { size: 30, rotation: 0 };
 export const DEFAULT_CLIP_FRAME = { width: 6, height: 6 * 1.414, rotation: 0 };
+
+// ✅ إضافة نوع الصورة المستوردة
+export interface PlanImage {
+  url: string;
+  x: number; // الإزاحة
+  y: number;
+  width: number; // العرض بالوحدات
+  height: number; // الارتفاع بالوحدات
+  opacity: number; // الشفافية (0.0 - 1.0)
+  locked?: boolean; // قفل تحريك الصورة
+}
