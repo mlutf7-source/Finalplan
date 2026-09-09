@@ -39,74 +39,19 @@ return () => { CapApp.removeAllListeners(); };
 }, [isSidebarOpen, state.isDirty]);
 
 const askName = (title: string, initial: string) => window.prompt(title, initial);
-
-
 const save = async () => {
-  const name = askName('أدخل اسم المشروع:', state.currentProjectName || 'مسودة غير محفوظة');
-  if (!name?.trim()) return;
-  
-  const projectData = {
-    name: name.trim(),
-    walls: state.walls,
-    dimensions: state.dimensions,
-    columns: state.elements.columns,
-    windows: state.elements.windows,
-    doors: state.elements.doors,
-    texts: state.textManager.texts,
-    regions: state.regionsManager.regions,
-    stairs: state.stairManager.stairs,
-    northArrows: state.elements.northArrows,
-    planImage: state.planImage
-  };
-  
-  const jsonString = JSON.stringify(projectData);
-  const fileName = `${name.trim().replace(/\s+/g, '_')}.finalplan.json`;
-
-  try {
-    // 1) محاولة الحفظ المباشر عبر Filesystem
-    const result = await Filesystem.writeFile({
-      path: fileName,
-      data: jsonString,
-      directory: Directory.Documents,
-      encoding: Encoding.UTF8
-    });
-    
-    alert('تم حفظ المشروع محلياً!');
-    
-    // مشاركة الملف المحفوظ
-    await Share.share({
-      title: 'مشروع Finalplan',
-      text: 'تم حفظ ملف المشروع',
-      url: result.uri,
-      dialogTitle: 'مشاركة أو حفظ المشروع'
-    });
-
-  } catch (e) {
-    // 2) حل بديل فوري إذا فشل الحفظ المباشر (استخدم مشاركة Blob)
-    try {
-      const blob = new Blob([jsonString], { type: 'application/json' });
-      const file = new File([blob], fileName, { type: 'application/json' });
-
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({
-          files: [file],
-          title: 'مشروع Finalplan',
-          text: 'مشاركة ملف المشروع'
-        });
-      } else {
-        // إذا لم يدعم الجهاز مشاركة الملفات، نقوم بتحميله كملف
-        alert('تعذر حفظ الملف مباشرة، سيتم تحميله الآن.');
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = fileName;
-        link.click();
-        setTimeout(() => URL.revokeObjectURL(link.href), 1000);
-      }
-    } catch (shareErr) {
-      alert('فشل حفظ الملف محلياً، تأكد من منح الإذن للتطبيق.');
-    }
-  }
+const name = askName('أدخل اسم المشروع:', state.currentProjectName || 'مسودة غير محفوظة');
+if (!name?.trim()) return;
+const projectData = { name: name.trim(), walls: state.walls, dimensions: state.dimensions, columns: state.elements.columns, windows: state.elements.windows, doors: state.elements.doors, texts: state.textManager.texts, regions: state.regionsManager.regions, stairs: state.stairManager.stairs, northArrows: state.elements.northArrows, planImage: state.planImage };
+const jsonString = JSON.stringify(projectData);
+const fileName = `${name.trim().replace(/\s+/g, '_')}.finalplan.json`;
+try {
+const result = await Filesystem.writeFile({ path: fileName, data: jsonString, directory: Directory.Cache, encoding: Encoding.UTF8 });
+await Share.share({ title: 'مشروع Finalplan', text: 'تم تجهيز ملف المشروع', url: result.uri, dialogTitle: 'حفظ أو مشاركة المشروع' });
+} catch (e) { alert('فشل تجهيز الملف، حاول مرة أخرى.'); }
 };
+
+// ✅ دالة استيراد المشروع
 const importProject = (e: React.ChangeEvent<HTMLInputElement>) => {
 const file = e.target.files?.[0];
 if (!file) return;
@@ -123,9 +68,7 @@ state.regionsManager.setRegions(data.regions || []);
 state.stairManager.setAllStairs(data.stairs || []);
 if (data.planImage) state.setPlanImage(data.planImage);
 alert('تم استيراد المشروع بنجاح!');
-} catch (err) {
-alert('ملف غير صالح!');
-}
+} catch (err) { alert('ملف غير صالح!'); }
 };
 reader.readAsText(file);
 };
@@ -136,30 +79,29 @@ const newProject = () => { if (state.isDirty && !confirm('حفظ التعديل�
 const toggleClip = () => { state.setClipFrame(state.clipFrame ? null : { id: 'clip-main', x: state.walls[0] ? (state.walls[0].start.x + state.walls[0].end.x) / 2 : 5, y: state.walls[0] ? (state.walls[0].start.y + state.walls[0].end.y) / 2 : 5, width: 6, height: 6 * 1.414, rotation: 0 }); setIsSidebarOpen(false); };
 const pdf = async () => { if (!state.clipFrame) return handleError('يرجى تفعيل الكليشة أولاً'); const stage = document.querySelector('[data-floor-plan-stage="true"]') as HTMLElement; if (!stage) return handleError('تعذر العثور على منطقة الرسم'); await exportToPDF(stage, state.clipFrame, state.view); setIsSidebarOpen(false); };
 
+// ✅ دالة استيراد الصورة مع إضافة خاصية isSelected
 const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
 const file = e.target.files?.[0];
 if (!file) return;
 const reader = new FileReader();
-reader.onloadend = () => { state.setPlanImage({ url: reader.result as string, x: 0, y: 0, width: 10, height: 10, opacity: 0.5, locked: false }); };
+reader.onloadend = () => { state.setPlanImage({ id: 'image-1', url: reader.result as string, x: 0, y: 0, width: 10, height: 10, opacity: 0.5, locked: false, isSelected: false }); };
 reader.readAsDataURL(file);
 };
 
+// ✅ دالة ضبط المقياس
 const handleScaleImage = () => {
 if (!state.planImage) return alert('لا توجد صورة!');
 if (state.walls.length === 0) return alert('ارسم جداراً فوق الجدار الموجود في الصورة أولاً!');
 const drawnWall = state.walls[state.walls.length - 1];
 const drawnLength = Math.hypot(drawnWall.end.x - drawnWall.start.x, drawnWall.end.y - drawnWall.start.y);
-const realLength = parseFloat(String(prompt('أدخل الطول الحقيقي للجدار بالمتر:', '3')));
+const realLength = parseFloat(prompt('أدخل الطول الحقيقي للجدار بالمتر:', '3') || '');
 if (isNaN(realLength) || realLength <= 0) return;
 const calibrationFactor = realLength / drawnLength;
 state.setPlanImage({ ...state.planImage, width: state.planImage.width * calibrationFactor, height: state.planImage.height * calibrationFactor });
 alert('تم ضبط مقياس الرسم بنجاح!');
 };
 
-const handleLockImage = () => {
-if (state.planImage) state.setPlanImage({ ...state.planImage, locked: !state.planImage.locked });
-};
-
+const handleLockImage = () => { if (state.planImage) state.setPlanImage({ ...state.planImage, locked: !state.planImage.locked }); };
 const handleDeleteImage = () => { state.setPlanImage(null); };
 
 const canvas = (
