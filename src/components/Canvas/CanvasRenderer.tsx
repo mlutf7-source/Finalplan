@@ -14,48 +14,30 @@ interface Props {
   planImage?: PlanImage | null;
 }
 
-const COLORS = {
-  exterior: '#333',
-  interior: '#333',
-  selected: '#0a0',
-  handle: '#06f',
-  preview: '#06f',
-  dimension: '#888',
-  grid: '#e0e0e0',
-  gridBorder: '#aaa',
-};
-
+const COLORS = { exterior: '#333', interior: '#333', selected: '#0a0', handle: '#06f', preview: '#06f', dimension: '#888', grid: '#e0e0e0', gridBorder: '#aaa' };
 const GRID_EXTENT = 20;
 const GRID_SPACING = 0.5;
 
-export const CanvasRenderer: React.FC<Props> = React.memo(({
-  walls, view, width, height, selectedId, tempStart, tempEnd, scale = 1, planImage = null,
-}) => {
+export const CanvasRenderer: React.FC<Props> = React.memo(({ walls, view, width, height, selectedId, tempStart, tempEnd, scale = 1, planImage = null }) => {
   const [showGrid, setShowGrid] = React.useState(true);
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
 
   React.useEffect(() => {
-    const handler = (e: Event) => {
-      setShowGrid((e as CustomEvent<boolean>).detail !== false);
-    };
+    const handler = (e: Event) => { setShowGrid((e as CustomEvent<boolean>).detail !== false); };
     window.addEventListener('pdf-export-grid', handler);
     return () => window.removeEventListener('pdf-export-grid', handler);
   }, []);
 
-  const toScreen = (p: Point): Point =>
-    worldToScreen(p.x, p.y, width, height, view.zoom, view.offsetX, view.offsetY);
+  const toScreen = (p: Point): Point => worldToScreen(p.x, p.y, width, height, view.zoom, view.offsetX, view.offsetY);
 
   const drawGrid = (ctx: CanvasRenderingContext2D) => {
     const topLeft = toScreen({ x: -GRID_EXTENT, y: -GRID_EXTENT });
     const bottomRight = toScreen({ x: GRID_EXTENT, y: GRID_EXTENT });
-
     ctx.strokeStyle = COLORS.gridBorder;
     ctx.lineWidth = 2 * scale;
     ctx.strokeRect(topLeft.x, topLeft.y, bottomRight.x - topLeft.x, bottomRight.y - topLeft.y);
-
     ctx.strokeStyle = COLORS.grid;
     ctx.lineWidth = 0.5 * scale;
-
     for (let x = -GRID_EXTENT; x <= GRID_EXTENT; x += GRID_SPACING) {
       const sx = toScreen({ x, y: 0 }).x;
       ctx.beginPath();
@@ -83,7 +65,6 @@ export const CanvasRenderer: React.FC<Props> = React.memo(({
     ctx.lineTo(corners[3].x, corners[3].y);
     ctx.closePath();
     ctx.fill();
-
     if (selected) {
       const s = toScreen(wall.start);
       const e = toScreen(wall.end);
@@ -102,33 +83,38 @@ export const CanvasRenderer: React.FC<Props> = React.memo(({
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-
     canvas.width = width * scale;
     canvas.height = height * scale;
     ctx.scale(scale, scale);
     ctx.clearRect(0, 0, width, height);
     ctx.fillStyle = '#fafafa';
     ctx.fillRect(0, 0, width, height);
-
     if (showGrid) drawGrid(ctx);
 
-    // ✅ رسم الصورة إذا كانت موجودة
+    // رسم الصورة
     if (planImage && planImage.url) {
       const img = new Image();
       img.src = planImage.url;
       img.onload = () => {
         ctx.save();
         ctx.globalAlpha = planImage.opacity;
-        // تحويل الإحداثيات من وحدات المتر إلى بكسل الشاشة
         const p1 = toScreen({ x: planImage.x, y: planImage.y });
         const p2 = toScreen({ x: planImage.x + planImage.width, y: planImage.y + planImage.height });
         ctx.drawImage(img, p1.x, p1.y, p2.x - p1.x, p2.y - p1.y);
+        
+        // إظهار إطار التحديد عند اختيار الصورة
+        if (planImage.isSelected) {
+          ctx.setLineDash([6, 4]);
+          ctx.strokeStyle = '#00aaff';
+          ctx.lineWidth = 2 / scale;
+          ctx.strokeRect(p1.x, p1.y, p2.x - p1.x, p2.y - p1.y);
+          ctx.setLineDash([]);
+        }
         ctx.restore();
       };
     }
 
     walls.forEach(w => drawWall(ctx, w, w.id === selectedId));
-
     if (tempStart && tempEnd) {
       const s = toScreen(tempStart);
       const e = toScreen(tempEnd);
