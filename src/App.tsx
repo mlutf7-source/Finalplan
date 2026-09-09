@@ -119,7 +119,7 @@ if (!state.planImage) return alert('لا توجد صورة!');
 if (state.walls.length === 0) return alert('ارسم جداراً فوق الجدار الموجود في الصورة أولاً!');
 const drawnWall = state.walls[state.walls.length - 1];
 const drawnLength = Math.hypot(drawnWall.end.x - drawnWall.start.x, drawnWall.end.y - drawnWall.start.y);
-const realLength = parseFloat(prompt('أدخل الطول الحقيقي للجدار بالمتر:', '3'));
+const realLength = parseFloat(String(prompt('أدخل الطول الحقيقي للجدار بالمتر:', '3')));
 if (isNaN(realLength) || realLength <= 0) return;
 const calibrationFactor = realLength / drawnLength;
 state.setPlanImage({ ...state.planImage, width: state.planImage.width * calibrationFactor, height: state.planImage.height * calibrationFactor });
