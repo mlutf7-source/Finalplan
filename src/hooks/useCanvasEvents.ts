@@ -96,17 +96,17 @@ export function useCanvasEvents({
     const pt = getPoint(e);
     if (!pt) return;
 
-    // ✅ 1. أولاً: التعامل مع الصورة (تحديد أو سحب أو تغيير حجم)
-    if (planImage && !planImage.locked && onPlanImageChange) {
-      const p1 = { x: planImage.x, y: planImage.y };
-      const p2 = { x: planImage.x + planImage.width, y: planImage.y + planImage.height };
-      const isInside = pt.world.x >= p1.x && pt.world.x <= p2.x && pt.world.y >= p1.y && pt.world.y <= p2.y;
-      if (isInside) {
-        if (onImageSelect) onImageSelect(planImage.id || 'image-1');
-        downPointRef.current = { world: pt.world, type: 'dragImage' };
-        return;
-      }
-    }
+    // ✅ تعديل: السماح بالرسم فوق الصورة إذا كانت أداة الرسم مفعلة، وتحديد الصورة فقط في وضع العرض
+if (planImage && !planImage.locked && onPlanImageChange && mode === 'view') {
+  const p1 = { x: planImage.x, y: planImage.y };
+  const p2 = { x: planImage.x + planImage.width, y: planImage.y + planImage.height };
+  const isInside = pt.world.x >= p1.x && pt.world.x <= p2.x && pt.world.y >= p1.y && pt.world.y <= p2.y;
+  if (isInside) {
+    if (onImageSelect) onImageSelect(planImage.id || 'image-1');
+    downPointRef.current = { world: pt.world, type: 'dragImage' };
+    return;
+  }
+}
 
     if (setup.clipFrame && clipFrameEdit.hitTest(pt.world, setup.clipFrame)) {
       const dragMode = clipFrameEdit.detectMode(pt.world, setup.clipFrame);
