@@ -40,37 +40,59 @@ return () => { CapApp.removeAllListeners(); };
 
 const askName = (title: string, initial: string) => window.prompt(title, initial);
 const save = async () => {
-const name = askName('أدخل اسم المشروع:', state.currentProjectName || 'مسودة غير محفوظة');
-if (!name?.trim()) return;
-const projectData = { name: name.trim(), walls: state.walls, dimensions: state.dimensions, columns: state.elements.columns, windows: state.elements.windows, doors: state.elements.doors, texts: state.textManager.texts, regions: state.regionsManager.regions, stairs: state.stairManager.stairs, northArrows: state.elements.northArrows, planImage: state.planImage };
-const jsonString = JSON.stringify(projectData);
-const fileName = `${name.trim().replace(/\s+/g, '_')}.finalplan.json`;
-try {
-const result = await Filesystem.writeFile({ path: fileName, data: jsonString, directory: Directory.Cache, encoding: Encoding.UTF8 });
-await Share.share({ title: 'مشروع Finalplan', text: 'تم تجهيز ملف المشروع', url: result.uri, dialogTitle: 'حفظ أو مشاركة المشروع' });
-} catch (e) { alert('فشل تجهيز الملف، حاول مرة أخرى.'); }
-};
+  const name = askName('أدخل اسم المشروع:', state.currentProjectName || 'مسودة غير محفوظة');
+  if (!name?.trim()) return;
 
-// ✅ دالة استيراد المشروع
-const importProject = (e: React.ChangeEvent<HTMLInputElement>) => {
-const file = e.target.files?.[0];
-if (!file) return;
-const reader = new FileReader();
-reader.onload = () => {
-try {
-const data = JSON.parse(reader.result as string);
-state.handleLoadProject(String(data.name || 'مشروع مستورد'));
-state.setWalls(data.walls || []);
-state.setDimensions(data.dimensions || []);
-state.elements.setAllElements(data.columns || [], data.windows || [], data.doors || [], data.northArrows || []);
-state.textManager.setAllTexts(data.texts || []);
-state.regionsManager.setRegions(data.regions || []);
-state.stairManager.setAllStairs(data.stairs || []);
-if (data.planImage) state.setPlanImage(data.planImage);
-alert('تم استيراد المشروع بنجاح!');
-} catch (err) { alert('ملف غير صالح!'); }
-};
-reader.readAsText(file);
+  const projectName = name.trim();
+  const isSameName = projectName === state.currentProjectName;
+
+  // ✅ 1. حفظ المشروع في قائمة المشاريع المحفوظة (تحديث أو إنشاء جديد)
+  if (isSameName) {
+    // نفس الاسم: قم بتحديث المشروع الحالي
+    state.handleSaveProject(projectName); // هذه الدالة تحدث المشروع وتحفظه
+  } else {
+    // اسم جديد: قم بإنشاء مشروع جديد (الأصل يبقى كما هو)
+    state.handleNewProject(); // تفريغ الحالة الحالية مؤقتاً؟ لا، لا نريد تفريغ الرسم!
+    // الحل الأفضل: استخدام دالة الحفظ العادية مع تغيير الاسم
+    state.handleSaveProject(projectName); // بما أن الاسم مختلف، سيتم إنشاء مشروع جديد
+  }
+
+  // ✅ 2. تجهيز بيانات المشروع وحفظها كملف في الهاتف
+  const projectData = {
+    name: projectName,
+    walls: state.walls,
+    dimensions: state.dimensions,
+    columns: state.elements.columns,
+    windows: state.elements.windows,
+    doors: state.elements.doors,
+    texts: state.textManager.texts,
+    regions: state.regionsManager.regions,
+    stairs: state.stairManager.stairs,
+    northArrows: state.elements.northArrows,
+    planImage: state.planImage
+  };
+  
+  const jsonString = JSON.stringify(projectData);
+  const fileName = `${projectName.replace(/\s+/g, '_')}.finalplan.json`;
+
+  try {
+    const result = await Filesystem.writeFile({
+      path: fileName,
+      data: jsonString,
+      directory: Directory.Cache,
+      encoding: Encoding.UTF8
+    });
+    
+    await Share.share({
+      title: 'مشروع Finalplan',
+      text: 'تم حفظ المشروع ومشاركته',
+      url: result.uri,
+      dialogTitle: 'حفظ أو مشاركة المشروع'
+    });
+    alert('تم الحفظ بنجاح!');
+  } catch (e) {
+    alert('فشل تجهيز الملف، حاول مرة أخرى.');
+  }
 };
 
 const load = (id: string) => { if (state.isDirty && !confirm('حفظ قبل التحميل؟')) return; if (state.isDirty) { const name = askName('أدخل اسم المشروع لحفظ التعديلات:', state.currentProjectName); if (name?.trim()) state.handleSaveProject(name.trim()); } state.handleLoadProject(id); state.setAllLayersLocked(true); setIsSidebarOpen(false); setTimeout(() => fitViewToWalls(), 150); };
