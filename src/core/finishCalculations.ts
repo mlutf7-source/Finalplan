@@ -16,7 +16,6 @@ export interface OpeningGroup {
 }
 
 export interface FinishResults {
-  // مساحات أساسية
   exteriorWallGross: number;
   interiorWallGross: number;
   ceilingArea: number;
@@ -25,10 +24,8 @@ export interface FinishResults {
   bathroomArea: number;
   kitchenWallArea: number;
   bathroomWallArea: number;
-  // صافي مساحات الجدران (بعد خصم الأعمدة والفتحات)
   exteriorWallNet: number;
   interiorWallNet: number;
-  // خصومات الأعمدة والنوافذ والأبواب
   outerColumnArea: number;
   innerColumnArea: number;
   extWindowArea: number;
@@ -36,26 +33,22 @@ export interface FinishResults {
   extDoorArea: number;
   intDoorArea: number;
   innerWallArea: number;
-  // كميات بناء الجدران
   exteriorBlocks: number;
   exteriorBlockCement: number;
   exteriorBlockSand: number;
   interiorBlocks: number;
   interiorBlockCement: number;
   interiorBlockSand: number;
-  // التلييس
   plasterWallsLabor: number;
   plasterCeilingLabor: number;
   plasterWallsMaterial: number;
   plasterCement: number;
   plasterSand: number;
-  // الطلاء
   paintWalls: number;
   paintCeiling: number;
   putty: number;
   primer: number;
   paint: number;
-  // البلاط
   tileFloorArea: number;
   tileKitchenFloor: number;
   tileBathroomFloor: number;
@@ -63,19 +56,15 @@ export interface FinishResults {
   tileBathroomWalls: number;
   tileCement: number;
   tileSand: number;
-  // الرخام
   marbleArea: number;
   marbleConcrete: number;
   marbleCement: number;
   marbleSand: number;
   marbleAggregate: number;
-  // الكهرباء والسباكة
   electricalPoints: number;
   plumbingPoints: number;
-  // مجموعات النوافذ والأبواب
   windowGroups: OpeningGroup[];
   doorGroups: OpeningGroup[];
-  // إجماليات
   totalBlocks: number;
   totalCement: number;
   totalSand: number;
@@ -128,11 +117,9 @@ export function calculateFinishes(
   const extWalls = walls.filter(w => w.type === 'exterior');
   const intWalls = walls.filter(w => w.type === 'interior');
 
-  // مساحات الجدران الإجمالية
   const exteriorWallGross = extWalls.reduce((s, w) => s + distance(w.start, w.end) * floorHeight, 0);
   const interiorWallGross = intWalls.reduce((s, w) => s + distance(w.start, w.end) * floorHeight, 0);
 
-  // مساحة الأسقف = مساحة الأرضية (تقريبية من الجدران الخارجية)
   let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
   extWalls.forEach(w => {
     minX = Math.min(minX, w.start.x, w.end.x);
@@ -143,7 +130,6 @@ export function calculateFinishes(
   const floorArea = Math.max(0, (maxX - minX) * (maxY - minY));
   const ceilingArea = floorArea;
 
-  // مساحات جدران المطابخ والحمامات من المناطق
   const kitchenRegions = regions.filter(r => r.type === 'kitchen');
   const bathroomRegions = regions.filter(r => r.type === 'bathroom');
   const kitchenArea = kitchenRegions.reduce((s, r) => s + r.area, 0);
@@ -151,7 +137,6 @@ export function calculateFinishes(
   const kitchenWallArea = kitchenRegions.reduce((s, r) => s + polygonPerimeter(r.polygon) * floorHeight, 0);
   const bathroomWallArea = bathroomRegions.reduce((s, r) => s + polygonPerimeter(r.polygon) * floorHeight, 0);
 
-  // حساب مساحات الأعمدة
   let outerColumnArea = 0;
   let innerColumnArea = 0;
   columns.forEach(col => {
@@ -195,7 +180,6 @@ export function calculateFinishes(
     }
   });
 
-  // تصنيف النوافذ إلى خارجية/داخلية
   let extWindowArea = 0;
   let intWindowArea = 0;
   windows.forEach(win => {
@@ -206,7 +190,6 @@ export function calculateFinishes(
     else intWindowArea += area;
   });
 
-  // تصنيف الأبواب إلى خارجية/داخلية
   let extDoorArea = 0;
   let intDoorArea = 0;
   doors.forEach(door => {
@@ -217,12 +200,10 @@ export function calculateFinishes(
     else intDoorArea += area;
   });
 
-  // صافي مساحات الجدران (للمواد)
   const innerWallArea = intWalls.reduce((s, w) => s + distance(w.start, w.end) * w.thickness, 0);
   const exteriorWallNet = Math.max(0, exteriorWallGross - outerColumnArea - extWindowArea - extDoorArea);
   const interiorWallNet = Math.max(0, interiorWallGross - innerColumnArea - intWindowArea - intDoorArea);
 
-  // ===== كميات البناء =====
   const exteriorBlocks = Math.ceil(exteriorWallNet * 12.5);
   const interiorBlocks = Math.ceil(interiorWallNet * 12.5);
   const exteriorBlockCement = Math.ceil(exteriorBlocks / 50);
@@ -230,7 +211,6 @@ export function calculateFinishes(
   const exteriorBlockSand = exteriorBlockCement * 0.15;
   const interiorBlockSand = interiorBlockCement * 0.15;
 
-  // ===== التلييس =====
   const plasterWallsLabor = (exteriorWallGross + interiorWallGross * 2) - kitchenWallArea - bathroomWallArea;
   const plasterCeilingLabor = ceilingArea;
   const plasterWallsMaterial = (exteriorWallGross + interiorWallGross * 2) - extWindowArea - extDoorArea - intWindowArea - intDoorArea - kitchenWallArea - bathroomWallArea;
@@ -238,16 +218,14 @@ export function calculateFinishes(
   const plasterCement = plasterArea * 0.15;
   const plasterSand = plasterCement * 0.15;
 
-  // ===== الطلاء =====
   const paintWalls = plasterWallsLabor;
   const paintCeiling = ceilingArea;
   const paintTotal = paintWalls + paintCeiling;
 
-  const putty = paintTotal * 0.8;  // كل 1 م² -> 0.8 كجم معجون
-  const primer = paintTotal / 8;   // كل 8 م² -> 1 كجم أساس
-  const paint = paintTotal / 8;    // كل 8 م² -> 1 كجم طلاء زيتي
+  const putty = paintTotal * 0.8;
+  const primer = paintTotal / 8;
+  const paint = paintTotal / 8;
 
-  // ===== البلاط =====
   const tileFloorArea = Math.max(0, floorArea - kitchenArea - bathroomArea);
   const tileKitchenFloor = kitchenArea;
   const tileBathroomFloor = bathroomArea;
@@ -257,18 +235,15 @@ export function calculateFinishes(
   const tileCement = tileTotalArea * 0.3;
   const tileSand = tileCement * 0.15;
 
-  // ===== الرخام =====
   const marbleArea = hasMarble ? Math.max(0, exteriorWallGross - extWindowArea - extDoorArea) : 0;
   const marbleConcrete = marbleArea * 0.04;
   const marbleCement = marbleArea * 0.3;
   const marbleSand = marbleCement * 0.07;
   const marbleAggregate = marbleCement * 0.075;
 
-  // ===== الكهرباء والسباكة =====
   const electricalPoints = floorArea * 0.7;
   const plumbingPoints = bathroomRegions.length * 5 + kitchenRegions.length * 4 + 3;
 
-  // ===== تجميع النوافذ والأبواب حسب الأبعاد =====
   const windowGroups: OpeningGroup[] = [];
   const winMap = new Map<string, { width: number; height: number; count: number }>();
   windows.forEach(w => {
@@ -305,7 +280,6 @@ export function calculateFinishes(
     });
   });
 
-  // ===== القيم المصححة (الموحدة) =====
   const correctedPlasterWalls = Math.max(0, plasterWallsLabor - (extWindowArea + extDoorArea + intWindowArea + intDoorArea) - (kitchenWallArea + bathroomWallArea));
   const correctedPlasterCeiling = Math.max(0, ceilingArea - innerWallArea);
   const correctedPlasterArea = correctedPlasterWalls + correctedPlasterCeiling;
@@ -323,7 +297,6 @@ export function calculateFinishes(
   const correctedTileCement = Math.ceil(correctedTileTotalArea * 0.3);
   const correctedTileSand = Math.ceil(correctedTileCement * 0.15);
 
-  // ===== الإجماليات =====
   const totalBlocks = exteriorBlocks + interiorBlocks;
   const totalCement = exteriorBlockCement + interiorBlockCement + plasterCement + tileCement + marbleCement;
   const totalSand = exteriorBlockSand + interiorBlockSand + plasterSand + tileSand + marbleSand;
@@ -383,8 +356,6 @@ export function calculateFinishes(
     totalCement,
     totalSand,
     totalAggregate,
-
-    // القيم المصححة
     correctedPlasterWalls,
     correctedPlasterCeiling,
     correctedPlasterArea,
