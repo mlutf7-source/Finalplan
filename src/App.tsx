@@ -125,7 +125,28 @@ alert('تم ضبط مقياس الرسم بنجاح!');
 
 const handleLockImage = () => { if (state.planImage) state.setPlanImage({ ...state.planImage, locked: !state.planImage.locked }); };
 const handleDeleteImage = () => { state.setPlanImage(null); };
-
+const importProject = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const data = JSON.parse(reader.result as string);
+      state.handleLoadProject(String(data.name || 'مشروع مستورد'));
+      state.setWalls(data.walls || []);
+      state.setDimensions(data.dimensions || []);
+      state.elements.setAllElements(data.columns || [], data.windows || [], data.doors || [], data.northArrows || []);
+      state.textManager.setAllTexts(data.texts || []);
+      state.regionsManager.setRegions(data.regions || []);
+      state.stairManager.setAllStairs(data.stairs || []);
+      if (data.planImage) state.setPlanImage(data.planImage);
+      alert('تم استيراد المشروع بنجاح!');
+    } catch (err) {
+      alert('ملف غير صالح!');
+    }
+  };
+  reader.readAsText(file);
+};
 const canvas = (
 <CanvasContainer walls={state.walls} onWallsChange={state.handleWallsChange} mode={state.mode} drawingType={state.drawingType} onModeChange={state.setMode} onCancelTool={() => state.setMode('view')} dimensions={state.dimensions} onAddDimension={state.handleAddDimension} onDimensionsChange={state.handleDimensionsChange} dimensionFontSize={state.dimensionFontSize} layers={state.layers} columns={state.elements.columns} windows={state.elements.windows} doors={state.elements.doors} texts={state.textManager.texts} regions={state.regionsManager.regions} stairs={state.stairManager.stairs} northArrows={state.elements.northArrows} updateNorthArrow={state.handleUpdateNorthArrow} frozen={false} onAddStairAtPoint={state.handleAddStairAtPoint} onUpdateStair={state.handleUpdateStair} onDeleteStair={state.handleDeleteStair} onPlaceColumn={state.handlePlaceColumn} onPlaceWindow={state.handlePlaceWindow} onPlaceDoor={state.handlePlaceDoor} onPlaceRegion={state.handlePlaceRegion} onDeleteRegion={state.handleDeleteRegion} updateColumn={state.handleUpdateColumn} updateWindow={state.handleUpdateWindow} updateDoor={state.handleUpdateDoor} onDeleteColumn={state.handleDeleteColumn} onDeleteWindow={state.handleDeleteWindow} onDeleteDoor={state.handleDeleteDoor} onAddText={state.handleAddText} onUpdateText={state.handleUpdateText} onDeleteText={state.handleDeleteText} onCopyText={state.handleCopyText} clipFrame={state.clipFrame} setClipFrame={state.setClipFrame} planImage={state.planImage} setPlanImage={state.setPlanImage} />
 );
