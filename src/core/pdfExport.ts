@@ -1,3 +1,4 @@
+// pdfExport.ts
 import jsPDF from 'jspdf';
 import { Capacitor } from '@capacitor/core';
 import { Directory, Filesystem } from '@capacitor/filesystem';
@@ -13,7 +14,11 @@ const blobToBase64 = async (blob: Blob): Promise<string> => {
   const chunkSize = 0x8000;
 
   for (let i = 0; i < bytes.length; i += chunkSize) {
-    const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
+    const chunk = bytes.subarray(
+      i,
+      Math.min(i + chunkSize, bytes.length)
+    );
+
     binary += String.fromCharCode(...chunk);
   }
 
@@ -24,7 +29,7 @@ export async function exportToPDF(
   stage: HTMLElement,
   clipFrame: ClipFrame | null,
   view: CanvasView,
-  scale = 8
+  scale = 4
 ) {
   if (!clipFrame) {
     alert('يرجى تفعيل الكليشة أولاً');
@@ -39,7 +44,9 @@ export async function exportToPDF(
     requestAnimationFrame(() => resolve())
   );
 
-  await new Promise<void>((resolve) => setTimeout(resolve, 100));
+  await new Promise<void>((resolve) =>
+    setTimeout(resolve, 100)
+  );
 
   try {
     const canvases = stage.querySelectorAll('canvas');
@@ -52,31 +59,11 @@ export async function exportToPDF(
     const stageWidth = stage.clientWidth;
     const stageHeight = stage.clientHeight;
 
-    const exportCanvas = document.createElement('canvas');
-
-    exportCanvas.width = stageWidth * scale;
-    exportCanvas.height = stageHeight * scale;
-
-    const ctx = exportCanvas.getContext('2d');
-
-    if (!ctx) return;
-
-    canvases.forEach((canvas) => {
-      if (canvas.width && canvas.height) {
-        ctx.drawImage(
-          canvas,
-          0,
-          0,
-          canvas.width,
-          canvas.height,
-          0,
-          0,
-          exportCanvas.width,
-          exportCanvas.height
-        );
-      }
-    });
-
+    /*
+     * حساب حدود الكليشة على الشاشة.
+     * نستخدم هذه الحدود مباشرة بدل إنشاء Canvas
+     * ضخم بحجم الـ Stage كامل.
+     */
     const left = clipFrame.x - clipFrame.width / 2;
     const right = clipFrame.x + clipFrame.width / 2;
     const top = clipFrame.y - clipFrame.height / 2;
@@ -132,38 +119,70 @@ export async function exportToPDF(
       cropBottom - cropY
     );
 
-    const croppedCanvas = document.createElement('canvas');
+    /*
+     * ننشئ فقط Canvas بحجم الكليشة.
+     * لا يتم إنشاء Canvas بحجم stage × 8.
+     */
+    const exportWidth = Math.round(cropWidth * scale);
+    const exportHeight = Math.round(cropHeight * scale);
 
-    croppedCanvas.width = Math.round(cropWidth * scale);
-    croppedCanvas.height = Math.round(cropHeight * scale);
+    const exportCanvas = document.createElement('canvas');
 
-    const cropCtx = croppedCanvas.getContext('2d');
+    exportCanvas.width = exportWidth;
+    exportCanvas.height = exportHeight;
 
-    if (!cropCtx) return;
+    const ctx = exportCanvas.getContext('2d');
 
-    cropCtx.drawImage(
-      exportCanvas,
-      cropX * scale,
-      cropY * scale,
-      cropWidth * scale,
-      cropHeight * scale,
+    if (!ctx) {
+      alert('تعذر تجهيز صورة المسقط للتصدير');
+      return;
+    }
+
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(
       0,
       0,
-      croppedCanvas.width,
-      croppedCanvas.height
+      exportWidth,
+      exportHeight
     );
 
+    /*
+     * رسم كل طبقات الـ Canvas مباشرة داخل منطقة القص.
+     * نحافظ على نفس موضع المسقط بدون تغيير.
+     */
+    canvases.forEach((canvas) => {
+      if (!canvas.width || !canvas.height) return;
+
+      ctx.drawImage(
+        canvas,
+        cropX,
+        cropY,
+        cropWidth,
+        cropHeight,
+        0,
+        0,
+        exportWidth,
+        exportHeight
+      );
+    });
+
+    /*
+     * PDF A3 أفقي.
+     */
     const pdf = new jsPDF(
       'landscape',
       'mm',
       'a3'
     );
 
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    const pageHeight = pdf.internal.pageSize.getHeight();
+    const pageWidth =
+      pdf.internal.pageSize.getWidth();
+
+    const pageHeight =
+      pdf.internal.pageSize.getHeight();
 
     const imageRatio =
-      croppedCanvas.width / croppedCanvas.height;
+      exportWidth / exportHeight;
 
     const pageRatio =
       pageWidth / pageHeight;
@@ -179,29 +198,39 @@ export async function exportToPDF(
       imgWidth = pageHeight * imageRatio;
     }
 
+    /*
+     * JPEG أخف كثيرًا من PNG في الذاكرة،
+     * مع جودة عالية مناسبة للمسقط المعماري.
+     */
+    const imgData =
+      exportCanvas.toDataURL(
+        'image/jpeg',
+        0.98
+      );
+
     pdf.addImage(
-      croppedCanvas.toDataURL('image/png'),
-      'PNG',
+      imgData,
+      'JPEG',
       (pageWidth - imgWidth) / 2,
       (pageHeight - imgHeight) / 2,
       imgWidth,
-      imgHeight
+      imgHeight,
+      undefined,
+      'FAST'
     );
 
-    const fileName = 'المسقط_المعماري.pdf';
+    const fileName =
+      'المسقط_المعماري.pdf';
 
     /*
-     * في APK Android:
-     * لا نستخدم pdf.save() لأن WebView لا يتعامل
-     * مع تنزيل الملفات مثل المتصفح.
-     *
-     * بدلاً من ذلك:
-     * PDF → Blob → Base64 → Filesystem → Share
+     * Android APK
      */
     if (Capacitor.isNativePlatform()) {
-      const pdfBlob = pdf.output('blob');
+      const pdfBlob =
+        pdf.output('blob');
 
-      const base64Data = await blobToBase64(pdfBlob);
+      const base64Data =
+        await blobToBase64(pdfBlob);
 
       await Filesystem.writeFile({
         path: fileName,
@@ -209,31 +238,46 @@ export async function exportToPDF(
         directory: Directory.Cache,
       });
 
-      const fileUri = await Filesystem.getUri({
-        path: fileName,
-        directory: Directory.Cache,
-      });
+      const fileUri =
+        await Filesystem.getUri({
+          path: fileName,
+          directory: Directory.Cache,
+        });
 
       await Share.share({
         title: 'المسقط المعماري',
         text: 'المسقط المعماري',
         url: fileUri.uri,
-        dialogTitle: 'مشاركة المسقط المعماري PDF',
+        dialogTitle:
+          'مشاركة المسقط المعماري PDF',
       });
     } else {
       /*
-       * في المتصفح:
-       * يبقى التنزيل بالطريقة الأصلية.
+       * المتصفح
        */
       pdf.save(fileName);
     }
-  } catch (error) {
-    console.error('PDF export error:', error);
 
-    alert('حدث خطأ أثناء تصدير المسقط إلى PDF');
+    /*
+     * تحرير الذاكرة بعد الانتهاء.
+     */
+    exportCanvas.width = 1;
+    exportCanvas.height = 1;
+  } catch (error) {
+    console.error(
+      'PDF export error:',
+      error
+    );
+
+    alert(
+      'حدث خطأ أثناء تصدير المسقط إلى PDF'
+    );
   } finally {
     window.dispatchEvent(
-      new CustomEvent('pdf-export-grid', { detail: true })
+      new CustomEvent(
+        'pdf-export-grid',
+        { detail: true }
+      )
     );
   }
       }
