@@ -1,25 +1,47 @@
 // pdfExport.ts
+
 import jsPDF from 'jspdf';
 import { Capacitor } from '@capacitor/core';
-import { Directory, Filesystem } from '@capacitor/filesystem';
+import {
+  Directory,
+  Filesystem,
+} from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { worldToScreen } from './geometry';
-import type { CanvasView, ClipFrame } from './types';
+import type {
+  CanvasView,
+  ClipFrame,
+} from './types';
 
-const blobToBase64 = async (blob: Blob): Promise<string> => {
-  const arrayBuffer = await blob.arrayBuffer();
-  const bytes = new Uint8Array(arrayBuffer);
+const blobToBase64 = async (
+  blob: Blob
+): Promise<string> => {
+  const arrayBuffer =
+    await blob.arrayBuffer();
+
+  const bytes =
+    new Uint8Array(arrayBuffer);
 
   let binary = '';
+
   const chunkSize = 0x8000;
 
-  for (let i = 0; i < bytes.length; i += chunkSize) {
+  for (
+    let i = 0;
+    i < bytes.length;
+    i += chunkSize
+  ) {
     const chunk = bytes.subarray(
       i,
-      Math.min(i + chunkSize, bytes.length)
+      Math.min(
+        i + chunkSize,
+        bytes.length
+      )
     );
 
-    binary += String.fromCharCode(...chunk);
+    binary += String.fromCharCode(
+      ...chunk
+    );
   }
 
   return btoa(binary);
@@ -32,113 +54,258 @@ export async function exportToPDF(
   scale = 4
 ) {
   if (!clipFrame) {
-    alert('يرجى تفعيل الكليشة أولاً');
+    alert(
+      'يرجى تفعيل الكليشة أولاً'
+    );
     return;
   }
 
   window.dispatchEvent(
-    new CustomEvent('pdf-export-grid', { detail: false })
+    new CustomEvent(
+      'pdf-export-grid',
+      {
+        detail: false,
+      }
+    )
   );
 
-  await new Promise<void>((resolve) =>
-    requestAnimationFrame(() => resolve())
+  await new Promise<void>(
+    (resolve) =>
+      requestAnimationFrame(() =>
+        resolve()
+      )
   );
 
-  await new Promise<void>((resolve) =>
-    setTimeout(resolve, 100)
+  await new Promise<void>(
+    (resolve) =>
+      setTimeout(resolve, 100)
   );
 
   try {
-    const canvases = stage.querySelectorAll('canvas');
+    const canvases = Array.from(
+      stage.querySelectorAll('canvas')
+    );
 
     if (!canvases.length) {
-      alert('تعذر العثور على عناصر الرسم');
+      alert(
+        'تعذر العثور على عناصر الرسم'
+      );
       return;
     }
 
-    const stageWidth = stage.clientWidth;
-    const stageHeight = stage.clientHeight;
+    const stageWidth =
+      stage.clientWidth;
+
+    const stageHeight =
+      stage.clientHeight;
+
+    if (
+      stageWidth <= 0 ||
+      stageHeight <= 0
+    ) {
+      alert(
+        'تعذر تحديد مساحة الرسم'
+      );
+      return;
+    }
 
     /*
-     * حساب حدود الكليشة على الشاشة.
-     * نستخدم هذه الحدود مباشرة بدل إنشاء Canvas
-     * ضخم بحجم الـ Stage كامل.
+     * =========================================================
+     * 1. تحديد حدود الكليشة في الـ World
+     * =========================================================
      */
-    const left = clipFrame.x - clipFrame.width / 2;
-    const right = clipFrame.x + clipFrame.width / 2;
-    const top = clipFrame.y - clipFrame.height / 2;
-    const bottom = clipFrame.y + clipFrame.height / 2;
 
-    const topLeft = worldToScreen(
-      left,
-      top,
-      stageWidth,
-      stageHeight,
-      view.zoom,
-      view.offsetX,
-      view.offsetY
-    );
+    const left =
+      clipFrame.x -
+      clipFrame.width / 2;
 
-    const bottomRight = worldToScreen(
-      right,
-      bottom,
-      stageWidth,
-      stageHeight,
-      view.zoom,
-      view.offsetX,
-      view.offsetY
-    );
+    const right =
+      clipFrame.x +
+      clipFrame.width / 2;
 
-    const cropX = Math.max(
-      0,
-      Math.min(topLeft.x, bottomRight.x)
-    );
+    const top =
+      clipFrame.y -
+      clipFrame.height / 2;
 
-    const cropY = Math.max(
-      0,
-      Math.min(topLeft.y, bottomRight.y)
-    );
-
-    const cropRight = Math.min(
-      stageWidth,
-      Math.max(topLeft.x, bottomRight.x)
-    );
-
-    const cropBottom = Math.min(
-      stageHeight,
-      Math.max(topLeft.y, bottomRight.y)
-    );
-
-    const cropWidth = Math.max(
-      1,
-      cropRight - cropX
-    );
-
-    const cropHeight = Math.max(
-      1,
-      cropBottom - cropY
-    );
+    const bottom =
+      clipFrame.y +
+      clipFrame.height / 2;
 
     /*
-     * ننشئ فقط Canvas بحجم الكليشة.
-     * لا يتم إنشاء Canvas بحجم stage × 8.
+     * تحويل حدود الكليشة إلى إحداثيات الشاشة.
      */
-    const exportWidth = Math.round(cropWidth * scale);
-    const exportHeight = Math.round(cropHeight * scale);
 
-    const exportCanvas = document.createElement('canvas');
+    const topLeft =
+      worldToScreen(
+        left,
+        top,
+        stageWidth,
+        stageHeight,
+        view.zoom,
+        view.offsetX,
+        view.offsetY
+      );
 
-    exportCanvas.width = exportWidth;
-    exportCanvas.height = exportHeight;
+    const bottomRight =
+      worldToScreen(
+        right,
+        bottom,
+        stageWidth,
+        stageHeight,
+        view.zoom,
+        view.offsetX,
+        view.offsetY
+      );
 
-    const ctx = exportCanvas.getContext('2d');
+    /*
+     * الحدود الفعلية للكليشة على الشاشة.
+     */
+
+    const frameLeft =
+      Math.min(
+        topLeft.x,
+        bottomRight.x
+      );
+
+    const frameTop =
+      Math.min(
+        topLeft.y,
+        bottomRight.y
+      );
+
+    const frameRight =
+      Math.max(
+        topLeft.x,
+        bottomRight.x
+      );
+
+    const frameBottom =
+      Math.max(
+        topLeft.y,
+        bottomRight.y
+      );
+
+    const frameWidth =
+      frameRight - frameLeft;
+
+    const frameHeight =
+      frameBottom - frameTop;
+
+    if (
+      frameWidth <= 0 ||
+      frameHeight <= 0
+    ) {
+      alert(
+        'أبعاد الكليشة غير صالحة'
+      );
+      return;
+    }
+
+    /*
+     * =========================================================
+     * 2. نستخدم حدود الكليشة نفسها كمصدر للتصدير
+     *
+     * لا نستخدم مساحة الـ Stage كاملة.
+     * =========================================================
+     */
+
+    const sourceLeft =
+      Math.max(
+        0,
+        frameLeft
+      );
+
+    const sourceTop =
+      Math.max(
+        0,
+        frameTop
+      );
+
+    const sourceRight =
+      Math.min(
+        stageWidth,
+        frameRight
+      );
+
+    const sourceBottom =
+      Math.min(
+        stageHeight,
+        frameBottom
+      );
+
+    const sourceWidth =
+      sourceRight -
+      sourceLeft;
+
+    const sourceHeight =
+      sourceBottom -
+      sourceTop;
+
+    if (
+      sourceWidth <= 0 ||
+      sourceHeight <= 0
+    ) {
+      alert(
+        'الكليشة خارج منطقة الرسم الحالية'
+      );
+      return;
+    }
+
+    /*
+     * =========================================================
+     * 3. إنشاء Canvas بحجم الكليشة فقط
+     *
+     * scale = 4
+     * جودة عالية بدون إنشاء Canvas ضخم للـ Stage.
+     * =========================================================
+     */
+
+    const exportWidth =
+      Math.max(
+        1,
+        Math.round(
+          sourceWidth * scale
+        )
+      );
+
+    const exportHeight =
+      Math.max(
+        1,
+        Math.round(
+          sourceHeight * scale
+        )
+      );
+
+    const exportCanvas =
+      document.createElement(
+        'canvas'
+      );
+
+    exportCanvas.width =
+      exportWidth;
+
+    exportCanvas.height =
+      exportHeight;
+
+    const ctx =
+      exportCanvas.getContext(
+        '2d'
+      );
 
     if (!ctx) {
-      alert('تعذر تجهيز صورة المسقط للتصدير');
+      alert(
+        'تعذر تجهيز المسقط للتصدير'
+      );
       return;
     }
 
-    ctx.fillStyle = '#ffffff';
+    /*
+     * خلفية بيضاء.
+     */
+
+    ctx.fillStyle =
+      '#ffffff';
+
     ctx.fillRect(
       0,
       0,
@@ -147,74 +314,172 @@ export async function exportToPDF(
     );
 
     /*
-     * رسم كل طبقات الـ Canvas مباشرة داخل منطقة القص.
-     * نحافظ على نفس موضع المسقط بدون تغيير.
+     * =========================================================
+     * 4. دمج طبقات الرسم
+     *
+     * مهم:
+     * يتم تحويل إحداثيات الشاشة إلى إحداثيات
+     * الـ Canvas الداخلية لكل طبقة.
+     * =========================================================
      */
-    canvases.forEach((canvas) => {
-      if (!canvas.width || !canvas.height) return;
 
-      ctx.drawImage(
-        canvas,
-        cropX,
-        cropY,
-        cropWidth,
-        cropHeight,
-        0,
-        0,
-        exportWidth,
-        exportHeight
-      );
-    });
+    canvases.forEach(
+      (canvas) => {
+        if (
+          canvas.width <= 0 ||
+          canvas.height <= 0
+        ) {
+          return;
+        }
 
-    /*
-     * PDF A3 أفقي.
-     */
-    const pdf = new jsPDF(
-      'landscape',
-      'mm',
-      'a3'
+        /*
+         * بعض Canvas تكون دقتها الداخلية
+         * مختلفة عن حجمها الظاهر.
+         */
+
+        const canvasScaleX =
+          canvas.width /
+          stageWidth;
+
+        const canvasScaleY =
+          canvas.height /
+          stageHeight;
+
+        const sourceX =
+          sourceLeft *
+          canvasScaleX;
+
+        const sourceY =
+          sourceTop *
+          canvasScaleY;
+
+        const sourceCanvasWidth =
+          sourceWidth *
+          canvasScaleX;
+
+        const sourceCanvasHeight =
+          sourceHeight *
+          canvasScaleY;
+
+        ctx.drawImage(
+          canvas,
+          sourceX,
+          sourceY,
+          sourceCanvasWidth,
+          sourceCanvasHeight,
+          0,
+          0,
+          exportWidth,
+          exportHeight
+        );
+      }
     );
 
-    const pageWidth =
-      pdf.internal.pageSize.getWidth();
+    /*
+     * =========================================================
+     * 5. تحديد حجم صفحة PDF من المحتوى نفسه
+     *
+     * لا A3
+     * لا A4
+     * لا صفحة ثابتة.
+     *
+     * أطول ضلع للمحتوى = 280 mm تقريبًا.
+     * =========================================================
+     */
 
-    const pageHeight =
-      pdf.internal.pageSize.getHeight();
+    const contentRatio =
+      exportWidth /
+      exportHeight;
 
-    const imageRatio =
-      exportWidth / exportHeight;
+    const targetLongestSide =
+      280;
 
-    const pageRatio =
-      pageWidth / pageHeight;
+    let contentWidthMM: number;
+    let contentHeightMM: number;
 
-    let imgWidth: number;
-    let imgHeight: number;
+    if (
+      contentRatio >= 1
+    ) {
+      contentWidthMM =
+        targetLongestSide;
 
-    if (imageRatio > pageRatio) {
-      imgWidth = pageWidth;
-      imgHeight = pageWidth / imageRatio;
+      contentHeightMM =
+        targetLongestSide /
+        contentRatio;
     } else {
-      imgHeight = pageHeight;
-      imgWidth = pageHeight * imageRatio;
+      contentHeightMM =
+        targetLongestSide;
+
+      contentWidthMM =
+        targetLongestSide *
+        contentRatio;
     }
 
     /*
-     * JPEG أخف كثيرًا من PNG في الذاكرة،
-     * مع جودة عالية مناسبة للمسقط المعماري.
+     * =========================================================
+     * 6. إضافة هامش 4%
+     *
+     * الهامش صغير حتى لا يكون هناك فراغ كبير.
+     * =========================================================
      */
+
+    const marginRatio =
+      0.04;
+
+    const marginX =
+      contentWidthMM *
+      marginRatio;
+
+    const marginY =
+      contentHeightMM *
+      marginRatio;
+
+    const pageWidth =
+      contentWidthMM +
+      marginX * 2;
+
+    const pageHeight =
+      contentHeightMM +
+      marginY * 2;
+
+    /*
+     * =========================================================
+     * 7. إنشاء PDF بمقاس المحتوى
+     * =========================================================
+     */
+
+    const pdf =
+      new jsPDF({
+        orientation:
+          pageWidth >= pageHeight
+            ? 'landscape'
+            : 'portrait',
+        unit: 'mm',
+        format: [
+          pageWidth,
+          pageHeight,
+        ],
+        compress: true,
+      });
+
+    /*
+     * =========================================================
+     * 8. إضافة المسقط والكليشة
+     * =========================================================
+     */
+
     const imgData =
       exportCanvas.toDataURL(
-        'image/jpeg',
-        0.98
+        'image/png'
       );
 
     pdf.addImage(
       imgData,
-      'JPEG',
-      (pageWidth - imgWidth) / 2,
-      (pageHeight - imgHeight) / 2,
-      imgWidth,
-      imgHeight,
+      'PNG',
+      marginX,
+      marginY,
+      contentWidthMM,
+      contentHeightMM,
       undefined,
       'FAST'
     );
@@ -223,46 +488,60 @@ export async function exportToPDF(
       'المسقط_المعماري.pdf';
 
     /*
-     * Android APK
+     * =========================================================
+     * 9. Android APK
+     * =========================================================
      */
-    if (Capacitor.isNativePlatform()) {
+
+    if (
+      Capacitor.isNativePlatform()
+    ) {
       const pdfBlob =
         pdf.output('blob');
 
       const base64Data =
-        await blobToBase64(pdfBlob);
+        await blobToBase64(
+          pdfBlob
+        );
 
       await Filesystem.writeFile({
         path: fileName,
         data: base64Data,
-        directory: Directory.Cache,
+        directory:
+          Directory.Cache,
       });
 
       const fileUri =
         await Filesystem.getUri({
           path: fileName,
-          directory: Directory.Cache,
+          directory:
+            Directory.Cache,
         });
 
       await Share.share({
-        title: 'المسقط المعماري',
-        text: 'المسقط المعماري',
+        title:
+          'المسقط المعماري',
+        text:
+          'المسقط المعماري',
         url: fileUri.uri,
         dialogTitle:
           'مشاركة المسقط المعماري PDF',
       });
     } else {
       /*
-       * المتصفح
+       * المتصفح.
        */
+
       pdf.save(fileName);
     }
 
     /*
-     * تحرير الذاكرة بعد الانتهاء.
+     * تحرير الذاكرة.
      */
+
     exportCanvas.width = 1;
     exportCanvas.height = 1;
+
   } catch (error) {
     console.error(
       'PDF export error:',
@@ -276,8 +555,10 @@ export async function exportToPDF(
     window.dispatchEvent(
       new CustomEvent(
         'pdf-export-grid',
-        { detail: true }
+        {
+          detail: true,
+        }
       )
     );
   }
-      }
+}
