@@ -49,7 +49,19 @@ const handleDeleteRegion = useCallback((id: string) => { commit(); regionsManage
 const handleAddText = useCallback((position: Point, text: string) => { commit(); textManager.addText(position, text); setMode('view'); }, [textManager, commit]);
 const handleUpdateText = useCallback((id: string, patch: Partial<TextElement>) => { commit(); textManager.updateText(id, patch); }, [textManager, commit]);
 const handleDeleteText = useCallback((id: string) => { commit(); textManager.removeText(id); }, [textManager, commit]);
-const handleCopyText = useCallback((text: TextElement) => { commit(); textManager.addText({ x: text.position.x + 1, y: text.position.y + 1 }, text.text); }, [textManager, commit]);
+const handleCopyText = useCallback((text: TextElement) => {
+  commit();
+  textManager.addText(
+    { x: text.position.x + 1, y: text.position.y + 1 },
+    text.text,
+    {
+      fontSize: text.fontSize,
+      color: text.color,
+      rotation: text.rotation,
+      fontFamily: text.fontFamily,
+    }
+  );
+}, [textManager, commit]);
 const handleUpdateColumn = useCallback((id: string, patch: Partial<Column>) => { commit(); elements.updateColumn(id, patch); }, [elements, commit]);
 const handleUpdateWindow = useCallback((id: string, patch: Partial<Window>) => { commit(); elements.updateWindow(id, patch); }, [elements, commit]);
 const handleUpdateDoor = useCallback((id: string, patch: Partial<Door>) => { commit(); elements.updateDoor(id, patch); }, [elements, commit]);
