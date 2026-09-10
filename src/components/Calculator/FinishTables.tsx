@@ -7,136 +7,297 @@ import { TileMarbleTables } from './tables/TileMarbleTables';
 import { OpeningTables } from './tables/OpeningTables';
 import { UtilitySummaryTables } from './tables/UtilitySummaryTables';
 import { DeductionsTable } from './tables/DeductionsTable';
+import { createPdfFromElement } from '../../utils/pdfShare';
+
 interface Props {
   results: FinishResults;
-    hasMarble: boolean;
-      electricalPts: number;
-        plumbingPts: number;
-          onElectricalChange: (value: number) => void;
-            onPlumbingChange: (value: number) => void;
-            }
+  hasMarble: boolean;
+  electricalPts: number;
+  plumbingPts: number;
+  onElectricalChange: (value: number) => void;
+  onPlumbingChange: (value: number) => void;
+}
 
-const TotalLaborSummary: React.FC<{ results: FinishResults; hasMarble: boolean }> = ({ results, hasMarble }) => {
+const TotalLaborSummary: React.FC<{
+  results: FinishResults;
+  hasMarble: boolean;
+}> = ({ results, hasMarble }) => {
+  // إجمالي عمالة الجدران
+  const totalWallLabor = Math.ceil(
+    results.exteriorWallGross +
+    results.interiorWallGross
+  );
 
-    // ✅ 1. إجمالي عمالة الجدران = بناء الجدران الخارجية + بناء الجدران الداخلية (كما هو)
-       const totalWallLabor = Math.ceil(results.exteriorWallGross + results.interiorWallGross);
+  // إجمالي عمالة التلييس
+  const totalPlasterLabor = Math.ceil(
+    results.plasterWallsLabor +
+    (results.plasterCeilingLabor -
+      results.innerWallArea)
+  );
 
-         // ✅ 2. إجمالي عمالة التلييس = تلييس الجدران الداخلية + تلييس الأسقف (بعد خصم innerWallArea من السقف)
-           const totalPlasterLabor = Math.ceil(results.plasterWallsLabor + (results.plasterCeilingLabor - results.innerWallArea));
+  // إجمالي عمالة الطلاء
+  const totalPaintLabor = Math.ceil(
+    results.paintWalls +
+    (results.paintCeiling -
+      results.innerWallArea)
+  );
 
-             // ✅ 3. إجمالي عمالة الطلاء = طلاء الجدران + طلاء الأسقف (بعد خصم innerWallArea من السقف) - لا تخصم الأبواب والنوافذ هنا!
-               const totalPaintLabor = Math.ceil(results.paintWalls + (results.paintCeiling - results.innerWallArea));
+  // إجمالي عمالة البلاط
+  const totalTileLabor = Math.ceil(
+    (results.tileFloorArea -
+      results.innerWallArea) +
+    results.tileKitchenFloor +
+    results.tileBathroomFloor +
+    results.tileKitchenWalls +
+    results.tileBathroomWalls
+  );
 
-                 // ✅ 4. إجمالي عمالة البلاط = بلاط الأرضيات (بعد خصم innerWallArea) + باقي بنود البلاط
-                   const totalTileLabor = Math.ceil((results.tileFloorArea - results.innerWallArea) + results.tileKitchenFloor + results.tileBathroomFloor + results.tileKitchenWalls + results.tileBathroomWalls);
-                      const totalMarbleLabor = hasMarble ? Math.ceil(results.exteriorWallGross) : 0;
-                            
-                                  
-              
-                        const cardStyle: React.CSSProperties = {
-                            background: '#fff',
-                                border: '1px solid #ddd',
-                                    borderRadius: 12,
-                                        overflow: 'hidden',
-                                            marginBottom: 12,
-                                              };
+  const totalMarbleLabor = hasMarble
+    ? Math.ceil(results.exteriorWallGross)
+    : 0;
 
-                                                const headStyle: React.CSSProperties = {
-                                                    background: '#f8fafc',
-                                                        padding: '10px 12px',
-                                                            fontWeight: 700,
-                                                                color: '#003366',
-                                                                    fontSize: 14,
-                                                                        borderBottom: '1px solid #ddd',
-                                                                          };
+  const cardStyle: React.CSSProperties = {
+    background: '#fff',
+    border: '1px solid #ddd',
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: 12,
+  };
 
-                                                                            const thStyle: React.CSSProperties = {
-                                                                                padding: '8px 5px',
-                                                                                    border: '1px solid #ddd',
-                                                                                        background: '#0f4c81',
-                                                                                            color: 'white',
-                                                                                                fontSize: '0.8rem',
-                                                                                                    fontWeight: 700,
-                                                                                                      };
+  const headStyle: React.CSSProperties = {
+    background: '#f8fafc',
+    padding: '10px 12px',
+    fontWeight: 700,
+    color: '#003366',
+    fontSize: 14,
+    borderBottom: '1px solid #ddd',
+  };
 
-                                                                                                        const tdStyle: React.CSSProperties = {
-                                                                                                            padding: '8px',
-                                                                                                                border: '1px solid #ddd',
-                                                                                                                    textAlign: 'center',
-                                                                                                                        fontSize: '0.8rem',
-                                                                                                                          };
+  const thStyle: React.CSSProperties = {
+    padding: '8px 5px',
+    border: '1px solid #ddd',
+    background: '#0f4c81',
+    color: 'white',
+    fontSize: '0.8rem',
+    fontWeight: 700,
+  };
 
-                                                                                                                            return (
-                                                                                                                                <div style={cardStyle}>
-                                                                                                                                      <div style={headStyle}>📊 إجمالي كميات العمالة</div>
-                                                                                                                                            <div style={{ padding: 10, overflowX: 'auto' }}>
-                                                                                                                                                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                                                                                                                                                              <thead>
-                                                                                                                                                                          <tr>
-                                                                                                                                                                                        <th style={thStyle}>البند</th>
-                                                                                                                                                                                                      <th style={thStyle}>الكمية</th>
-                                                                                                                                                                                                                    <th style={thStyle}>الوحدة</th>
-                                                                                                                                                                                                                                </tr>
-                                                                                                                                                                                                                                          </thead>
-                                                                                                                                                                                                                                                    <tbody>
-                                                                                                                                                                                                                                                                <tr>
-                                                                                                                                                                                                                                                                              <td style={{ ...tdStyle, fontWeight: 600 }}>إجمالي عمالة الجدران</td>
-                                                                                                                                                                                                                                                                                            <td style={tdStyle}>{totalWallLabor}</td>
-                                                                                                                                                                                                                                                                                                          <td style={tdStyle}>م²</td>
-                                                                                                                                                                                                                                                                                                                      </tr>
-                                                                                                                                                                                                                                                                                                                                  <tr>
-                                                                                                                                                                                                                                                                                                                                                <td style={{ ...tdStyle, fontWeight: 600 }}>إجمالي عمالة التلييس</td>
-                                                                                                                                                                                                                                                                                                                                                              <td style={tdStyle}>{totalPlasterLabor}</td>
-                                                                                                                                                                                                                                                                                                                                                                            <td style={tdStyle}>م²</td>
-                                                                                                                                                                                                                                                                                                                                                                                        </tr>
-                                                                                                                                                                                                                                                                                                                                                                                                    <tr>
-                                                                                                                                                                                                                                                                                                                                                                                                                  <td style={{ ...tdStyle, fontWeight: 600 }}>إجمالي عمالة الطلاء</td>
-                                                                                                                                                                                                                                                                                                                                                                                                                                <td style={tdStyle}>{totalPaintLabor}</td>
-                                                                                                                                                                                                                                                                                                                                                                                                                                              <td style={tdStyle}>م²</td>
-                                                                                                                                                                                                                                                                                                                                                                                                                                                          </tr>
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                      <tr>
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    <td style={{ ...tdStyle, fontWeight: 600 }}>إجمالي عمالة البلاط</td>
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  <td style={tdStyle}>{totalTileLabor}</td>
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                <td style={tdStyle}>م²</td>
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            </tr>
-                                                                                                         {hasMarble && (
-                                                                                                             <tr>
-                                                                                                                 <td style={{ ...tdStyle, fontWeight: 600 }}>إجمالي عمالة الرخام</td>
-                                                                                                                     <td style={tdStyle}>{totalMarbleLabor}</td>
-                                                                                                                         <td style={tdStyle}>م²</td>
-                                                                                                                           </tr>
-                                                                                                                           )}
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     </tbody>
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              </table>
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    </div>
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        </div>
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          );
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          };
+  const tdStyle: React.CSSProperties = {
+    padding: '8px',
+    border: '1px solid #ddd',
+    textAlign: 'center',
+    fontSize: '0.8rem',
+  };
 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          export const FinishTables: React.FC<Props> = ({
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            results,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              hasMarble,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                electricalPts,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  plumbingPts,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    onElectricalChange,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      onPlumbingChange,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      }) => {
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        return (
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            <>
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  <LaborTable results={results} hasMarble={hasMarble} />
-                                                                                                               {/* ✅ جدول التحقق من مساحات الخصومات */}
-                                                                                                               <DeductionsTable results={results} />                                                                                                                                                                                                                                                                                                                                                                                                                                                                         {/* ✅ إضافة جدول إجمالي كميات العمالة بعد LaborTable */}
-<TotalLaborSummary results={results} hasMarble={hasMarble} />                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   <WallConstructionTables results={results} />
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          <PlasterPaintTables results={results} />
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                <TileMarbleTables results={results} hasMarble={hasMarble} />
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      <OpeningTables results={results} />
-<UtilitySummaryTables
-  results={results}
-    hasMarble={hasMarble} // ✅ إضافة هذا السطر
-      electricalPts={electricalPts}
+  return (
+    <div style={cardStyle}>
+      <div style={headStyle}>
+        📊 إجمالي كميات العمالة
+      </div>
+
+      <div
+        style={{
+          padding: 10,
+          overflowX: 'auto',
+        }}
+      >
+        <table
+          style={{
+            width: '100%',
+            borderCollapse: 'collapse',
+          }}
+        >
+          <thead>
+            <tr>
+              <th style={thStyle}>البند</th>
+              <th style={thStyle}>الكمية</th>
+              <th style={thStyle}>الوحدة</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            <tr>
+              <td
+                style={{
+                  ...tdStyle,
+                  fontWeight: 600,
+                }}
+              >
+                إجمالي عمالة الجدران
+              </td>
+
+              <td style={tdStyle}>
+                {totalWallLabor}
+              </td>
+
+              <td style={tdStyle}>م²</td>
+            </tr>
+
+            <tr>
+              <td
+                style={{
+                  ...tdStyle,
+                  fontWeight: 600,
+                }}
+              >
+                إجمالي عمالة التلييس
+              </td>
+
+              <td style={tdStyle}>
+                {totalPlasterLabor}
+              </td>
+
+              <td style={tdStyle}>م²</td>
+            </tr>
+
+            <tr>
+              <td
+                style={{
+                  ...tdStyle,
+                  fontWeight: 600,
+                }}
+              >
+                إجمالي عمالة الطلاء
+              </td>
+
+              <td style={tdStyle}>
+                {totalPaintLabor}
+              </td>
+
+              <td style={tdStyle}>م²</td>
+            </tr>
+
+            <tr>
+              <td
+                style={{
+                  ...tdStyle,
+                  fontWeight: 600,
+                }}
+              >
+                إجمالي عمالة البلاط
+              </td>
+
+              <td style={tdStyle}>
+                {totalTileLabor}
+              </td>
+
+              <td style={tdStyle}>م²</td>
+            </tr>
+
+            {hasMarble && (
+              <tr>
+                <td
+                  style={{
+                    ...tdStyle,
+                    fontWeight: 600,
+                  }}
+                >
+                  إجمالي عمالة الرخام
+                </td>
+
+                <td style={tdStyle}>
+                  {totalMarbleLabor}
+                </td>
+
+                <td style={tdStyle}>م²</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+};
+
+export const FinishTables: React.FC<Props> = ({
+  results,
+  hasMarble,
+  electricalPts,
+  plumbingPts,
+  onElectricalChange,
+  onPlumbingChange,
+}) => {
+  const handlePdfShare = async () => {
+    await createPdfFromElement(
+      'finishes-pdf',
+      'تقرير_التشطيبات'
+    );
+  };
+
+  return (
+    <>
+      {/* زر مشاركة PDF */}
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'flex-start',
+          marginBottom: 12,
+        }}
+      >
+        <button
+          type="button"
+          onClick={handlePdfShare}
+          style={{
+            width: '100%',
+            padding: '11px 16px',
+            border: 'none',
+            borderRadius: 10,
+            background: '#0f4c81',
+            color: '#fff',
+            fontSize: 15,
+            fontWeight: 700,
+            cursor: 'pointer',
+          }}
+        >
+          📄 مشاركة تقرير التشطيبات PDF
+        </button>
+      </div>
+
+      <LaborTable
+        results={results}
+        hasMarble={hasMarble}
+      />
+
+      {/* جدول التحقق من مساحات الخصومات */}
+      <DeductionsTable
+        results={results}
+      />
+
+      {/* إجمالي كميات العمالة */}
+      <TotalLaborSummary
+        results={results}
+        hasMarble={hasMarble}
+      />
+
+      <WallConstructionTables
+        results={results}
+      />
+
+      <PlasterPaintTables
+        results={results}
+      />
+
+      <TileMarbleTables
+        results={results}
+        hasMarble={hasMarble}
+      />
+
+      <OpeningTables
+        results={results}
+      />
+
+      <UtilitySummaryTables
+        results={results}
+        hasMarble={hasMarble}
+        electricalPts={electricalPts}
         plumbingPts={plumbingPts}
-          onElectricalChange={onElectricalChange}
-            onPlumbingChange={onPlumbingChange}
-            />                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             </>
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                );
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                };
+        onElectricalChange={
+          onElectricalChange
+        }
+        onPlumbingChange={
+          onPlumbingChange
+        }
+      />
+    </>
+  );
+};
