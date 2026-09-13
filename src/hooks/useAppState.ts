@@ -21,6 +21,7 @@ const [mode, setMode] = useState<AppMode>('view');
 const [drawingType, setDrawingType] = useState<DrawingType>(null);
 const [dimensions, setDimensions] = useState<Dimension[]>([]);
 const [dimensionFontSize, setDimensionFontSize] = useState(40);
+  const [axes, setAxes] = useState<Axis[]>([]);
 const [layers, setLayers] = useState<LayersState>({ walls: true, dimensions: true, columns: true, windows: true, doors: true, texts: true, regions: true, stairs: true, northArrow: true, axes: true });
 const [showQuantities, setShowQuantities] = useState(false);
 const [activeTab, setActiveTab] = useState<'preliminary' | 'structure' | 'finishes' | 'prices' | 'summary'>('finishes');
@@ -89,7 +90,6 @@ const handleNewProject = useCallback(() => { setWalls([]); setDimensions([]); el
 const [planImage, setPlanImage] = useState<PlanImage | null>(null);
 
 // ✅ حالة المحاور
-const [axes, setAxes] = useState<Axis[]>([]);
 const handleAddAxes = useCallback((newAxes: Axis[]) => { commit(); setAxes(prev => [...prev, ...newAxes]); }, [commit]);
 const handleUpdateAxis = useCallback((id: string, patch: Partial<Axis>) => { commit(); setAxes(prev => prev.map(a => a.id === id ? { ...a, ...patch } : a)); }, [commit]);
 const handleDeleteAxis = useCallback((id: string) => { commit(); setAxes(prev => prev.filter(a => a.id !== id)); }, [commit]);
