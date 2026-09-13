@@ -93,7 +93,16 @@ export function useCanvasEvents({
     if (mode === 'drawing') { if (layers.walls) drawing.begin(pt.world, drawingType); downPointRef.current = null; return; }
     if (mode === 'dimension') { if (layers.dimensions) { dimensionMode.begin(pt.world); downPointRef.current = { world: pt.world, type: 'dimension' }; } return; }
 
-    // ✅ المحاور: فقط في وضع العرض وعندما تكون طبقتها مفتوحة
+    if (northArrows.length > 0 && layers.northArrow) { const hitArrow = northArrows.find(a => northArrowEdit.hitTest(pt.world, a)); if (hitArrow) { const dragMode = northArrowEdit.detectMode(pt.world, hitArrow); northArrowEdit.select(hitArrow.id, pt.world, dragMode); downPointRef.current = { world: pt.world, type: 'northArrowEdit' }; return; } }
+    if (layers.texts) { const hitText = texts.find(t => textEdit.hitTest(pt.world, t)); if (hitText) { const dragMode = textEdit.detectMode(pt.world, hitText); textEdit.select(hitText.id, pt.world, dragMode); downPointRef.current = { world: pt.world, type: 'textEdit' }; return; } }
+    if (regions.length > 0 && layers.regions) { const hitRegion = regions.find(r => isPointInPolygon(pt.world, r.polygon)); if (hitRegion) { setSelectedRegionId(hitRegion.id); downPointRef.current = { world: pt.world, type: 'regionEdit' }; return; } else { setSelectedRegionId(null); } }
+    if (stairs.length > 0 && layers.stairs) { const hitStair = stairs.find(s => isPointNearStair(pt.world, s)); if (hitStair) { setSelectedStairId(hitStair.id); stairDragCandidateRef.current = { pt: pt.world, stair: hitStair }; downPointRef.current = { world: pt.world, type: 'stairCandidate' }; return; } else { setSelectedStairId(null); } }
+    const elementHit = elementEdit.hitTest(pt.world);
+    if (elementHit) { const layerKey = elementHit.type === 'column' ? 'columns' : elementHit.type === 'window' ? 'windows' : 'doors'; if (layers[layerKey]) { const dragMode = elementEdit.detectMode(pt.world, elementHit.id, elementHit.type); elementEdit.select(elementHit.id, elementHit.type, pt.world, dragMode); downPointRef.current = { world: pt.world, type: 'elementEdit' }; return; } }
+    if (layers.dimensions) { if (dimensionEdit.selectedDimId) { const selectedDim = dimensions.find(d => d.id === dimensionEdit.selectedDimId); if (selectedDim) { const hit = dimensionEdit.hitTest(pt.world, selectedDim); if (hit !== null) { dimensionEdit.select(selectedDim.id, hit, pt.world); downPointRef.current = { world: pt.world, type: 'dimensionEdit' }; return; } } } if (dimensions.length > 0) { const hitDim = dimensions.map(dim => ({ dim, type: dimensionEdit.hitTest(pt.world, dim) })).find(h => h.type !== null); if (hitDim && hitDim.type) { dimensionEdit.select(hitDim.dim.id, hitDim.type, pt.world); downPointRef.current = { world: pt.world, type: 'dimensionEdit' }; return; } } }
+    if (layers.walls) { if (edit.selectedWallId) { const selectedWall = walls.find(w => w.id === edit.selectedWallId); if (selectedWall) { const hit = edit.hitTest(pt.world, selectedWall); if (hit !== 'none') { edit.select(selectedWall.id, hit, pt.world); downPointRef.current = { world: pt.world, type: 'edit' }; onModeChange('edit'); return; } } } const hitWall = walls.map(w => ({ w, t: edit.hitTest(pt.world, w) })).find(h => h.t !== 'none'); if (hitWall) { edit.select(hitWall.w.id, hitWall.t, pt.world); downPointRef.current = { world: pt.world, type: 'edit' }; onModeChange('edit'); return; } }
+
+    // ✅ فحص المحاور في النهاية (بعد كل العناصر الأخرى) - حتى لا يتسبب في "قفز" العناصر
     if (mode === 'view' && layers.axes) {
       const hitAxis = axes.find(a => axisEdit.hitTest(pt.world, a));
       if (hitAxis) {
@@ -103,14 +112,6 @@ export function useCanvasEvents({
       }
     }
 
-    if (northArrows.length > 0 && layers.northArrow) { const hitArrow = northArrows.find(a => northArrowEdit.hitTest(pt.world, a)); if (hitArrow) { const dragMode = northArrowEdit.detectMode(pt.world, hitArrow); northArrowEdit.select(hitArrow.id, pt.world, dragMode); downPointRef.current = { world: pt.world, type: 'northArrowEdit' }; return; } }
-    if (layers.texts) { const hitText = texts.find(t => textEdit.hitTest(pt.world, t)); if (hitText) { const dragMode = textEdit.detectMode(pt.world, hitText); textEdit.select(hitText.id, pt.world, dragMode); downPointRef.current = { world: pt.world, type: 'textEdit' }; return; } }
-    if (regions.length > 0 && layers.regions) { const hitRegion = regions.find(r => isPointInPolygon(pt.world, r.polygon)); if (hitRegion) { setSelectedRegionId(hitRegion.id); downPointRef.current = { world: pt.world, type: 'regionEdit' }; return; } else { setSelectedRegionId(null); } }
-    if (stairs.length > 0 && layers.stairs) { const hitStair = stairs.find(s => isPointNearStair(pt.world, s)); if (hitStair) { setSelectedStairId(hitStair.id); stairDragCandidateRef.current = { pt: pt.world, stair: hitStair }; downPointRef.current = { world: pt.world, type: 'stairCandidate' }; return; } else { setSelectedStairId(null); } }
-    const elementHit = elementEdit.hitTest(pt.world);
-    if (elementHit) { const layerKey = elementHit.type === 'column' ? 'columns' : elementHit.type === 'window' ? 'windows' : 'doors'; if (layers[layerKey]) { const dragMode = elementEdit.detectMode(pt.world, elementHit.id, elementHit.type); elementEdit.select(elementHit.id, elementHit.type, pt.world, dragMode); downPointRef.current = { world: pt.world, type: 'elementEdit' }; return; } }
-    if (layers.dimensions) { if (dimensionEdit.selectedDimId) { const selectedDim = dimensions.find(d => d.id === dimensionEdit.selectedDimId); if (selectedDim) { const hit = dimensionEdit.hitTest(pt.world, selectedDim); if (hit !== null) { dimensionEdit.select(selectedDim.id, hit, pt.world); downPointRef.current = { world: pt.world, type: 'dimensionEdit' }; return; } } } if (dimensions.length > 0) { const hitDim = dimensions.map(dim => ({ dim, type: dimensionEdit.hitTest(pt.world, dim) })).find(h => h.type !== null); if (hitDim && hitDim.type) { dimensionEdit.select(hitDim.dim.id, hitDim.type, pt.world); downPointRef.current = { world: pt.world, type: 'dimensionEdit' }; return; } } }
-    if (layers.walls) { if (edit.selectedWallId) { const selectedWall = walls.find(w => w.id === edit.selectedWallId); if (selectedWall) { const hit = edit.hitTest(pt.world, selectedWall); if (hit !== 'none') { edit.select(selectedWall.id, hit, pt.world); downPointRef.current = { world: pt.world, type: 'edit' }; onModeChange('edit'); return; } } } const hitWall = walls.map(w => ({ w, t: edit.hitTest(pt.world, w) })).find(h => h.t !== 'none'); if (hitWall) { edit.select(hitWall.w.id, hitWall.t, pt.world); downPointRef.current = { world: pt.world, type: 'edit' }; onModeChange('edit'); return; } }
     downPointRef.current = { world: pt.world, type: 'pan' };
   }, [mode, drawingType, walls, dimensions, layers, texts, regions, stairs, northArrows, axes, getPoint, drawing, edit, dimensionMode, dimensionEdit, elementEdit, textEdit, northArrowEdit, clipFrameEdit, axisEdit, onModeChange, view, onAddStairAtPoint, onUpdateStair, onPlaceColumn, onPlaceWindow, onPlaceDoor, onPlaceRegion, onAddText, containerRef, setSelectedRegionId, setSelectedStairId, setup, planImage, onPlanImageChange, onImageSelect]);
 
@@ -159,4 +160,4 @@ export function useCanvasEvents({
   }, [drawing, dimensionMode, edit, elementEdit, textEdit, stairEdit, northArrowEdit, clipFrameEdit, axisEdit]);
 
   return { onPointerDown, onPointerMove, onPointerUp, zoomAtPoint };
-  }
+    }
