@@ -3,8 +3,6 @@ import type { Point, Axis } from '../core/types';
 import { distance } from '../core/geometry';
 
 export type AxisDragMode = 'move' | 'extendStart' | 'extendEnd' | null;
-const HANDLE_SIZE = 0.4;
-const HIT_TOLERANCE = 0.25;
 
 export function useAxisEdit(axes: Axis[], updateAxis: (id: string, patch: Partial<Axis>) => void) {
   const [selectedAxisId, setSelectedAxisId] = useState<string | null>(null);
@@ -24,21 +22,24 @@ export function useAxisEdit(axes: Axis[], updateAxis: (id: string, patch: Partia
 
   const hitTest = useCallback((pt: Point, axis: Axis): boolean => {
     const { start, end } = getAxisEndpoints(axis);
+    const tol = 0.4;
+    const extension = 0.3;
     if (axis.type === 'vertical') {
       const minY = Math.min(start.y, end.y); const maxY = Math.max(start.y, end.y);
-      if (pt.y < minY || pt.y > maxY) return false;
-      return Math.abs(pt.x - start.x) <= HIT_TOLERANCE;
+      if (pt.y < minY - extension || pt.y > maxY + extension) return false;
+      return Math.abs(pt.x - start.x) <= tol;
     } else {
       const minX = Math.min(start.x, end.x); const maxX = Math.max(start.x, end.x);
-      if (pt.x < minX || pt.x > maxX) return false;
-      return Math.abs(pt.y - start.y) <= HIT_TOLERANCE;
+      if (pt.x < minX - extension || pt.x > maxX + extension) return false;
+      return Math.abs(pt.y - start.y) <= tol;
     }
   }, [getAxisEndpoints]);
 
   const detectMode = useCallback((pt: Point, axis: Axis): AxisDragMode => {
     const { start, end } = getAxisEndpoints(axis);
-    if (distance(pt, start) <= HANDLE_SIZE) return 'extendStart';
-    if (distance(pt, end) <= HANDLE_SIZE) return 'extendEnd';
+    const handle = 0.5;
+    if (distance(pt, start) <= handle) return 'extendStart';
+    if (distance(pt, end) <= handle) return 'extendEnd';
     return 'move';
   }, [getAxisEndpoints]);
 
@@ -92,4 +93,4 @@ export function useAxisEdit(axes: Axis[], updateAxis: (id: string, patch: Partia
   }, []);
 
   return { selectedAxisId, hitTest, detectMode, select, deselect, moveDrag, endDrag, getAxisEndpoints };
-        }
+}
