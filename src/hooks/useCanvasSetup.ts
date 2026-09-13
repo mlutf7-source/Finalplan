@@ -42,7 +42,7 @@ export function useCanvasSetup({
   const containerRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 800, h: 450 });
   const { view, setZoom, pan, setView, reset } = useCanvasState();
-  const drawing = useDrawing(walls, (w) => onWallsChange([...walls, w]));
+  const drawing = useDrawing(walls, axes, (w) => onWallsChange([...walls, w]));
   const edit = useWallEditor(walls, onWallsChange as any);
   const dimensionMode = useDimensionMode(walls, onAddDimension);
   const dimensionEdit = useDimensionEdit(dimensions, walls, onDimensionsChange);
@@ -90,4 +90,4 @@ export function useCanvasSetup({
     selectedRegionId, setSelectedRegionId, selectedStairId, setSelectedStairId,
     deselectAll, selectedType, showRightSidebar, showLeftSidebar,
   };
-}
+                                                                                            }
