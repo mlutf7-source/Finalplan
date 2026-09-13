@@ -43,11 +43,10 @@ export function useCanvasSetup({
   const [size, setSize] = useState({ w: 800, h: 450 });
   const { view, setZoom, pan, setView, reset } = useCanvasState();
   const drawing = useDrawing(walls, axes, (w) => onWallsChange([...walls, w]));
-  const edit = useWallEditor(walls, onWallsChange as any);
+const edit = useWallEditor(walls, onWallsChange as any, axes);
   const dimensionMode = useDimensionMode(walls, onAddDimension);
   const dimensionEdit = useDimensionEdit(dimensions, walls, onDimensionsChange);
-  const elementEdit = useElementEdit(columns, windows, doors, walls, updateColumn, updateWindow, updateDoor);
-  const textEdit = useTextEdit(texts, onUpdateText, onDeleteText, onAddText);
+  const elementEdit = useElementEdit(columns, windows, doors, walls, updateColumn, updateWindow, updateDoor, axes);  const textEdit = useTextEdit(texts, onUpdateText, onDeleteText, onAddText);
   const stairEdit = useStairEdit();
   const northArrowEdit = useNorthArrowEdit(northArrows, updateNorthArrow);
   const clipFrameEdit = useClipFrameEdit(clipFrame ? [clipFrame] : [], (id, patch) => { if (clipFrame && clipFrame.id === id) setClipFrame({ ...clipFrame, ...patch }); });
