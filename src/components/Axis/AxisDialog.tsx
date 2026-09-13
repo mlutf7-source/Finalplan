@@ -1,14 +1,32 @@
 import React, { useState } from 'react';
 import type { Axis } from '../../core/types';
 import { v4 as uuidv4 } from 'uuid';
-interface Props { onClose: () => void; onCreateAxes: (axes: Axis[]) => void; }
+
+interface Props { onClose: () => void; onCreateAxes: (axes: Axis[]) => void; existingAxes: Axis[]; }
+
 const inputStyle: React.CSSProperties = { width: '100%', padding: '6px', borderRadius: 6, border: '1px solid #ccc', fontSize: 14, textAlign: 'center', direction: 'ltr' };
-export const AxisDialog: React.FC<Props> = ({ onClose, onCreateAxes }) => {
-  const [vLen, setVLen] = useState('10');
-  const [hLen, setHLen] = useState('10');
-  const [vSpacings, setVSpacings] = useState<string[]>(['3', '3']);
-  const [hSpacings, setHSpacings] = useState<string[]>(['3', '3']);
+
+export const AxisDialog: React.FC<Props> = ({ onClose, onCreateAxes, existingAxes }) => {
+  const vAxes = existingAxes.filter(a => a.type === 'vertical').sort((a, b) => a.position - b.position);
+  const hAxes = existingAxes.filter(a => a.type === 'horizontal').sort((a, b) => a.position - b.position);
+
+  const [vLen, setVLen] = useState(vAxes.length > 0 ? String(vAxes[0].length) : '10');
+  const [hLen, setHLen] = useState(hAxes.length > 0 ? String(hAxes[0].length) : '10');
+  const [vSpacings, setVSpacings] = useState<string[]>(() => {
+    if (vAxes.length < 2) return ['3', '3'];
+    const sp: string[] = [];
+    for (let i = 1; i < vAxes.length; i++) sp.push(String(Math.abs(vAxes[i].position - vAxes[i - 1].position)));
+    return sp;
+  });
+  const [hSpacings, setHSpacings] = useState<string[]>(() => {
+    if (hAxes.length < 2) return ['3', '3'];
+    const sp: string[] = [];
+    for (let i = 1; i < hAxes.length; i++) sp.push(String(Math.abs(hAxes[i].position - hAxes[i - 1].position)));
+    return sp;
+  });
+
   const safeParse = (v: string, fb = 0) => { if (v === '' || v === '.' || v === ',') return fb; const n = parseFloat(v.replace(',', '.')); return isNaN(n) ? fb : n; };
+
   const handleCreate = () => {
     const vl = safeParse(vLen, 10); const hl = safeParse(hLen, 10);
     const vSp = vSpacings.map(s => safeParse(s, 0)).filter(x => x > 0);
@@ -22,6 +40,7 @@ export const AxisDialog: React.FC<Props> = ({ onClose, onCreateAxes }) => {
     hPos.forEach((p, i) => newAxes.push({ id: uuidv4(), type: 'horizontal', label: String(i + 1), position: p - hc, center: 0, length: hl, offset: 0 }));
     onCreateAxes(newAxes); onClose();
   };
+
   const renderColumn = (title: string, len: string, setLen: (s: string) => void, spacings: string[], setSpacings: (s: string[]) => void, type: 'vertical' | 'horizontal') => (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6, minWidth: 240 }}>
       <h4 style={{ margin: 0, color: '#003366' }}>{title}</h4>
@@ -35,15 +54,16 @@ export const AxisDialog: React.FC<Props> = ({ onClose, onCreateAxes }) => {
           <div key={i} style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
             <span style={{ fontSize: 12, minWidth: 60 }}>{l1} — {l2}:</span>
             <input type="text" inputMode="decimal" dir="ltr" value={s} onChange={e => { const c = [...spacings]; c[i] = e.target.value; setSpacings(c); }} style={inputStyle} />
-            <button onClick={() => setSpacings(spacings.filter((_, j) => j !== i))} style={{ padding: '4px 8px', borderRadius: 4, border: 'none', background: '#dc3545', color: '#fff', cursor: 'pointer' }}>✕</button>
+            <button tabIndex={-1} onClick={() => setSpacings(spacings.filter((_, j) => j !== i))} style={{ padding: '4px 8px', borderRadius: 4, border: 'none', background: '#dc3545', color: '#fff', cursor: 'pointer' }}>✕</button>
           </div>
         );
       })}
-      <button onClick={() => setSpacings([...spacings, '3'])} style={{ padding: '6px', borderRadius: 4, border: '1px dashed #06f', background: '#f0f8ff', cursor: 'pointer', fontSize: 13 }}>+ إضافة مسافة</button>
+      <button tabIndex={-1} onClick={() => setSpacings([...spacings, '3'])} style={{ padding: '6px', borderRadius: 4, border: '1px dashed #06f', background: '#f0f8ff', cursor: 'pointer', fontSize: 13 }}>+ إضافة مسافة</button>
     </div>
   );
+
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 10 }} onClick={onClose}>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 10 }} onClick={onClose}>
       <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 12, padding: 16, width: '100%', maxWidth: 640, maxHeight: '90vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
         <h3 style={{ margin: 0, color: '#003366' }}>📐 المحاور</h3>
         <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
