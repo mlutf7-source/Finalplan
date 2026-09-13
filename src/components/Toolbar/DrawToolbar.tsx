@@ -8,12 +8,12 @@ interface Props {
 }
 
 const btnStyle: React.CSSProperties = {
-  padding: '6px 8px',
+  padding: '8px 10px',
   margin: 0,
   border: '2px solid #ccc',
   borderRadius: 6,
   background: '#fff',
-  fontSize: 11,
+  fontSize: 12,
   cursor: 'pointer',
   fontWeight: 'bold',
   whiteSpace: 'nowrap',
