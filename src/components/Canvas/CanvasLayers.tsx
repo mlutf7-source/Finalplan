@@ -13,10 +13,20 @@ import { NorthArrowEditLayer } from './NorthArrowEditLayer';
 import { ClipFrameLayer } from './ClipFrameLayer';
 import { ClipFrameEditLayer } from './ClipFrameEditLayer';
 import { AxisLayer } from './AxisLayer';
+import { AxisEditLayer } from './AxisEditLayer';
 import type { Wall, CanvasView, Column, Window, Door, TextElement, Stair, NorthArrow, ClipFrame, PlanImage, Axis } from '../../core/types';
 import type { Dimension } from '../../core/dimensionTypes';
 import type { RoomRegion } from '../../core/regionTypes';
-interface Props { walls: Wall[]; windows: Window[]; doors: Door[]; view: CanvasView; width: number; height: number; selectedWallId: string | null; tempStart: { x: number; y: number } | null; tempEnd: { x: number; y: number } | null; columns: Column[]; texts: TextElement[]; regions: RoomRegion[]; stairs: Stair[]; northArrows: NorthArrow[]; clipFrames: ClipFrame[]; axes: Axis[]; selectedStairId: string | null; selectedElement: { id: string; type: 'column' | 'window' | 'door' } | null; selectedTextId: string | null; selectedNorthArrowId: string | null; selectedClipFrameId: string | null; selectedAxisId: string | null; dimensions: Dimension[]; dimensionFontSize: number; selectedDimId: string | null; scale?: number; planImage?: PlanImage | null; }
+
+interface Props {
+  walls: Wall[]; windows: Window[]; doors: Door[]; view: CanvasView; width: number; height: number;
+  selectedWallId: string | null; tempStart: { x: number; y: number } | null; tempEnd: { x: number; y: number } | null;
+  columns: Column[]; texts: TextElement[]; regions: RoomRegion[]; stairs: Stair[]; northArrows: NorthArrow[]; clipFrames: ClipFrame[];
+  axes: Axis[]; selectedStairId: string | null; selectedElement: { id: string; type: 'column' | 'window' | 'door' } | null;
+  selectedTextId: string | null; selectedNorthArrowId: string | null; selectedClipFrameId: string | null; selectedAxisId: string | null;
+  dimensions: Dimension[]; dimensionFontSize: number; selectedDimId: string | null; scale?: number; planImage?: PlanImage | null;
+}
+
 export const CanvasLayers: React.FC<Props> = React.memo((props) => {
   const { walls, windows, doors, view, width, height, selectedWallId, tempStart, tempEnd, columns, texts, regions, stairs, northArrows, clipFrames, axes, selectedStairId, selectedElement, selectedTextId, selectedNorthArrowId, selectedClipFrameId, selectedAxisId, dimensions, dimensionFontSize, selectedDimId, scale = 1, planImage = null } = props;
   return (
@@ -35,6 +45,7 @@ export const CanvasLayers: React.FC<Props> = React.memo((props) => {
       <NorthArrowEditLayer selectedArrow={northArrows.find(a => a.id === selectedNorthArrowId) ?? null} view={view} width={width} height={height} />
       <ClipFrameLayer clipFrames={clipFrames} view={view} width={width} height={height} selectedId={selectedClipFrameId} scale={scale} />
       <ClipFrameEditLayer selectedClipFrame={clipFrames.find(f => f.id === selectedClipFrameId) ?? null} view={view} width={width} height={height} />
+      <AxisEditLayer selectedAxis={axes.find(a => a.id === selectedAxisId) ?? null} view={view} width={width} height={height} />
     </>
   );
 });
