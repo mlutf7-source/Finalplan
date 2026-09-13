@@ -6,22 +6,31 @@ interface Props { onClose: () => void; onCreateAxes: (axes: Axis[]) => void; exi
 
 const inputStyle: React.CSSProperties = { width: '100%', padding: '6px', borderRadius: 6, border: '1px solid #ccc', fontSize: 14, textAlign: 'center', direction: 'ltr' };
 
+// ✅ دالة تقريب الأرقام لمنع الأعداد العشرية اللانهائية
+const formatNum = (n: number): string => {
+  if (!isFinite(n)) return '0';
+  const rounded = Math.round(n * 100) / 100;
+  return String(rounded);
+};
+
 export const AxisDialog: React.FC<Props> = ({ onClose, onCreateAxes, existingAxes }) => {
   const vAxes = existingAxes.filter(a => a.type === 'vertical').sort((a, b) => a.position - b.position);
   const hAxes = existingAxes.filter(a => a.type === 'horizontal').sort((a, b) => a.position - b.position);
 
-  const [vLen, setVLen] = useState(vAxes.length > 0 ? String(vAxes[0].length) : '10');
-  const [hLen, setHLen] = useState(hAxes.length > 0 ? String(hAxes[0].length) : '10');
+  const [vLen, setVLen] = useState(vAxes.length > 0 ? formatNum(vAxes[0].length) : '10');
+  const [hLen, setHLen] = useState(hAxes.length > 0 ? formatNum(hAxes[0].length) : '10');
+
   const [vSpacings, setVSpacings] = useState<string[]>(() => {
     if (vAxes.length < 2) return ['3', '3'];
     const sp: string[] = [];
-    for (let i = 1; i < vAxes.length; i++) sp.push(String(Math.abs(vAxes[i].position - vAxes[i - 1].position)));
+    for (let i = 1; i < vAxes.length; i++) sp.push(formatNum(Math.abs(vAxes[i].position - vAxes[i - 1].position)));
     return sp;
   });
+
   const [hSpacings, setHSpacings] = useState<string[]>(() => {
     if (hAxes.length < 2) return ['3', '3'];
     const sp: string[] = [];
-    for (let i = 1; i < hAxes.length; i++) sp.push(String(Math.abs(hAxes[i].position - hAxes[i - 1].position)));
+    for (let i = 1; i < hAxes.length; i++) sp.push(formatNum(Math.abs(hAxes[i].position - hAxes[i - 1].position)));
     return sp;
   });
 
@@ -45,7 +54,12 @@ export const AxisDialog: React.FC<Props> = ({ onClose, onCreateAxes, existingAxe
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6, minWidth: 240 }}>
       <h4 style={{ margin: 0, color: '#003366' }}>{title}</h4>
       <label style={{ fontSize: 12, fontWeight: 700 }}>طول المحاور (متر):</label>
-      <input type="text" inputMode="decimal" dir="ltr" value={len} onChange={e => setLen(e.target.value)} style={inputStyle} />
+      <input
+        type="text" inputMode="decimal" dir="ltr" value={len}
+        onChange={e => setLen(e.target.value)}
+        onFocus={(e) => e.target.select()}
+        style={inputStyle}
+      />
       <label style={{ fontSize: 12, fontWeight: 700, marginTop: 8 }}>المسافات بين المحاور:</label>
       {spacings.map((s, i) => {
         const l1 = type === 'vertical' ? String.fromCharCode(65 + i) : String(i + 1);
@@ -53,7 +67,12 @@ export const AxisDialog: React.FC<Props> = ({ onClose, onCreateAxes, existingAxe
         return (
           <div key={i} style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
             <span style={{ fontSize: 12, minWidth: 60 }}>{l1} — {l2}:</span>
-            <input type="text" inputMode="decimal" dir="ltr" value={s} onChange={e => { const c = [...spacings]; c[i] = e.target.value; setSpacings(c); }} style={inputStyle} />
+            <input
+              type="text" inputMode="decimal" dir="ltr" value={s}
+              onChange={e => { const c = [...spacings]; c[i] = e.target.value; setSpacings(c); }}
+              onFocus={(e) => e.target.select()}
+              style={inputStyle}
+            />
             <button tabIndex={-1} onClick={() => setSpacings(spacings.filter((_, j) => j !== i))} style={{ padding: '4px 8px', borderRadius: 4, border: 'none', background: '#dc3545', color: '#fff', cursor: 'pointer' }}>✕</button>
           </div>
         );
