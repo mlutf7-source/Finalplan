@@ -19,17 +19,19 @@ function generateDimensionsForAxes(axes: Axis[]): Dimension[] {
   const vAxes = axes.filter(a => a.type === 'vertical').sort((a, b) => (a.position + a.offset) - (b.position + b.offset));
   const hAxes = axes.filter(a => a.type === 'horizontal').sort((a, b) => (a.position - a.offset) - (b.position - b.offset));
 
-  // مسافة 1 متر للداخل (بين المحاور)
+  // ✅ أبعاد رأسية: توضع فوق الفقاعات (نحو الداخل بـ 0.5م)
   for (let i = 0; i < vAxes.length - 1; i++) {
     const x1 = vAxes[i].position + vAxes[i].offset;
     const x2 = vAxes[i + 1].position + vAxes[i + 1].offset;
-    const yTop = vAxes[i].center + vAxes[i].length / 2 + 1;
+    const yTop = vAxes[i].center - vAxes[i].length / 2 - 0.5;
     dims.push({ id: uuidv4(), start: { x: x1, y: yTop }, end: { x: x2, y: yTop }, offset: 0 });
   }
+
+  // ✅ أبعاد أفقية: توضع يمين الفقاعات (نحو الداخل بـ 0.5م)
   for (let i = 0; i < hAxes.length - 1; i++) {
     const y1 = hAxes[i].position - hAxes[i].offset;
     const y2 = hAxes[i + 1].position - hAxes[i + 1].offset;
-    const xLeft = hAxes[i].center - hAxes[i].length / 2 - 1;
+    const xLeft = hAxes[i].center + hAxes[i].length / 2 + 0.5;
     dims.push({ id: uuidv4(), start: { x: xLeft, y: y1 }, end: { x: xLeft, y: y2 }, offset: 0 });
   }
 
