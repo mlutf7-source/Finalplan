@@ -14,6 +14,27 @@ import { v4 as uuidv4 } from 'uuid';
 import { useProjectManager } from './useProjectManager';
 interface Snapshot { walls: Wall[]; columns: Column[]; windows: Window[]; doors: Door[]; dimensions: Dimension[]; regions: RoomRegion[]; texts: TextElement[]; stairs: Stair[]; northArrows: NorthArrow[]; }
 function generateDimensionsForWalls(walls: Wall[]): Dimension[] { const dims: Dimension[] = []; walls.forEach((wall) => { const rect = wallRectangle(wall); const face = rect.faces[0]; const breakPoints: Point[] = []; walls.forEach((other) => { if (other.id === wall.id) return; const otherRect = wallRectangle(other); otherRect.faces.forEach((otherFace) => { const intersection = segmentIntersection(face.start, face.end, otherFace.start, otherFace.end); if (intersection) { breakPoints.push(intersection); } }); const cpStart = closestPointOnSegment(other.start, face.start, face.end); if (distance(cpStart, other.start) < 0.05) breakPoints.push({ ...other.start }); const cpEnd = closestPointOnSegment(other.end, face.start, face.end); if (distance(cpEnd, other.end) < 0.05) breakPoints.push({ ...other.end }); }); const unique: Point[] = []; breakPoints.forEach((p) => { if (!unique.some((u) => distance(u, p) < 0.01)) unique.push(p); }); const dir = { x: face.end.x - face.start.x, y: face.end.y - face.start.y }; unique.sort((a, b) => { const denominator = dir.x * dir.x + dir.y * dir.y || 1; const ta = ((a.x - face.start.x) * dir.x + (a.y - face.start.y) * dir.y) / denominator; const tb = ((b.x - face.start.x) * dir.x + (b.y - face.start.y) * dir.y) / denominator; return ta - tb; }); const points = [face.start, ...unique, face.end]; for (let i = 0; i < points.length - 1; i++) { const segmentLength = distance(points[i], points[i + 1]); if (segmentLength > 0.4) { const offsetValue = -(wall.thickness * 3); dims.push({ id: uuidv4(), start: { ...points[i] }, end: { ...points[i + 1] }, offset: offsetValue }); } } }); return dims; }
+function generateDimensionsForAxes(axes: Axis[]): Dimension[] {
+  const dims: Dimension[] = [];
+  const vAxes = axes.filter(a => a.type === 'vertical').sort((a, b) => (a.position + a.offset) - (b.position + b.offset));
+  const hAxes = axes.filter(a => a.type === 'horizontal').sort((a, b) => (a.position - a.offset) - (b.position - b.offset));
+
+  // مسافة 1 متر للداخل (بين المحاور)
+  for (let i = 0; i < vAxes.length - 1; i++) {
+    const x1 = vAxes[i].position + vAxes[i].offset;
+    const x2 = vAxes[i + 1].position + vAxes[i + 1].offset;
+    const yTop = vAxes[i].center + vAxes[i].length / 2 + 1;
+    dims.push({ id: uuidv4(), start: { x: x1, y: yTop }, end: { x: x2, y: yTop }, offset: 0 });
+  }
+  for (let i = 0; i < hAxes.length - 1; i++) {
+    const y1 = hAxes[i].position - hAxes[i].offset;
+    const y2 = hAxes[i + 1].position - hAxes[i + 1].offset;
+    const xLeft = hAxes[i].center - hAxes[i].length / 2 - 1;
+    dims.push({ id: uuidv4(), start: { x: xLeft, y: y1 }, end: { x: xLeft, y: y2 }, offset: 0 });
+  }
+
+  return dims;
+}
 function findNearestWall(walls: Wall[], pt: Point): { wall: Wall; point: Point; distance: number } | null { let nearest: { wall: Wall; point: Point; distance: number } | null = null; for (const wall of walls) { const point = closestPointOnSegment(pt, wall.start, wall.end); const d = distance(pt, point); if (!nearest || d < nearest.distance) nearest = { wall, point, distance: d }; } return nearest; }
 export function useAppState() {
 const [walls, setWalls] = useState<Wall[]>([]);
@@ -41,8 +62,12 @@ const commit = useCallback(() => { setHistory(h => [...h, currentSnapshotRef.cur
 const handleWallsChange = useCallback((newWalls: Wall[]) => { commit(); setWalls(newWalls); }, [commit]);
 const handleDimensionsChange = useCallback((newDims: Dimension[]) => { commit(); setDimensions(newDims); }, [commit]);
 const handleAddDimension = useCallback((dim: Dimension) => { commit(); setDimensions(prev => [...prev, dim]); }, [commit]);
-const handleAddAllDimensions = useCallback(() => { const dims = generateDimensionsForWalls(walls); commit(); setDimensions(prev => [...prev, ...dims]); }, [walls, commit]);
-
+const handleAddAllDimensions = useCallback(() => {
+  const wallDims = generateDimensionsForWalls(walls);
+  const axisDims = generateDimensionsForAxes(axes);
+  commit();
+  setDimensions(prev => [...prev, ...wallDims, ...axisDims]);
+}, [walls, axes, commit]);
 // ✅ تعديل 1: التقاط العمود على المحور
 const handlePlaceColumn = useCallback((pt: Point) => {
   commit();
@@ -102,7 +127,17 @@ const [planImage, setPlanImage] = useState<PlanImage | null>(null);
 // ✅ تعديل 2: استبدال بدلاً من الإضافة (لمنع التكرار)
 const handleAddAxes = useCallback((newAxes: Axis[]) => { commit(); setAxes(newAxes); }, [commit]);
 const handleUpdateAxis = useCallback((id: string, patch: Partial<Axis>) => { commit(); setAxes(prev => prev.map(a => a.id === id ? { ...a, ...patch } : a)); }, [commit]);
-const handleDeleteAxis = useCallback((id: string) => { commit(); setAxes(prev => prev.filter(a => a.id !== id)); }, [commit]);
-
+const handleDeleteAxis = useCallback((id: string) => {
+  commit();
+  setAxes(prev => {
+    const filtered = prev.filter(a => a.id !== id);
+    const vAxes = filtered.filter(a => a.type === 'vertical').sort((a, b) => (a.position + a.offset) - (b.position + b.offset));
+    const hAxes = filtered.filter(a => a.type === 'horizontal').sort((a, b) => (a.position - a.offset) - (b.position - b.offset));
+    return [
+      ...vAxes.map((a, i) => ({ ...a, label: String.fromCharCode(65 + i) })),
+      ...hAxes.map((a, i) => ({ ...a, label: String(i + 1) })),
+    ];
+  });
+}, [commit]);
 return { walls, setWalls, mode, setMode, drawingType, setDrawingType, dimensions, setDimensions, dimensionFontSize, setDimensionFontSize, layers, toggleLayer, toggleAllLayers, allUnlocked, setAllLayersLocked, showQuantities, setShowQuantities, activeTab, setActiveTab, elements, regionsManager, textManager, stairManager, results, history, future, handleUndo, handleRedo, handleWallsChange, handleDimensionsChange, handleAddDimension, handleAddAllDimensions, handlePlaceColumn, handlePlaceWindow, handlePlaceDoor, handlePlaceRegion, handleDeleteRegion, handleAddText, handleUpdateText, handleDeleteText, handleCopyText, handleUpdateColumn, handleUpdateWindow, handleUpdateDoor, handleDeleteColumn, handleDeleteWindow, handleDeleteDoor, handleAddStairAtPoint, handleUpdateStair, handleDeleteStair, handleAddNorthArrow, handleUpdateNorthArrow, handleCancelTool, toolsActive, projectManager, handleSaveProject, handleLoadProject, handleDeleteProject, handleNewProject, isDirty, currentProjectName, clipFrame, setClipFrame: handleSetClipFrame, view, setView, planImage, setPlanImage, axes, setAxes, handleAddAxes, handleUpdateAxis, handleDeleteAxis };
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       }
