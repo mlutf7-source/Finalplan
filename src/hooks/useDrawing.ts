@@ -21,28 +21,38 @@ export function useDrawing(walls: Wall[], axes: Axis[], onAdd: (w: Wall) => void
   ref.current = d;
   const [lastWallId, setLastWallId] = useState<string | null>(null);
 
+  // 1. دالة reset
+  const reset = useCallback(() => setD({ active: false, type: null, originalStart: null, start: null, end: null }), []);
+
+  // 2. دالة snapToAxis (مع احترام جهة الرسم)
   const snapToAxis = useCallback((originalStart: Point, end: Point, type: DrawingType): { start: Point; end: Point } => {
     if (axes.length === 0) return { start: originalStart, end };
     const thickness = type === 'exterior' ? 0.3 : 0.2;
     const halfThick = thickness / 2;
     const dx = Math.abs(end.x - originalStart.x);
     const dy = Math.abs(end.y - originalStart.y);
+
     if (dx > dy) {
-      const nearAxis = axes.find(a => a.type === 'horizontal' && Math.abs(originalStart.y - (a.position - a.offset + halfThick)) < SNAP_TO_AXIS);
+      // جدار أفقي
+      const nearAxis = axes.find(a => a.type === 'horizontal' && Math.abs(originalStart.y - (a.position - a.offset)) < SNAP_TO_AXIS);
       if (nearAxis) {
-        const adjustedY = nearAxis.position - nearAxis.offset - halfThick;
+        const axisY = nearAxis.position - nearAxis.offset;
+        const adjustedY = originalStart.y < axisY ? axisY - halfThick : axisY + halfThick;
         return { start: { ...originalStart, y: adjustedY }, end: { ...end, y: adjustedY } };
       }
     } else {
-      const nearAxis = axes.find(a => a.type === 'vertical' && Math.abs(originalStart.x - (a.position + a.offset - halfThick)) < SNAP_TO_AXIS);
+      // جدار رأسي
+      const nearAxis = axes.find(a => a.type === 'vertical' && Math.abs(originalStart.x - (a.position + a.offset)) < SNAP_TO_AXIS);
       if (nearAxis) {
-        const adjustedX = nearAxis.position + nearAxis.offset + halfThick;
+        const axisX = nearAxis.position + nearAxis.offset;
+        const adjustedX = originalStart.x < axisX ? axisX - halfThick : axisX + halfThick;
         return { start: { ...originalStart, x: adjustedX }, end: { ...end, x: adjustedX } };
       }
     }
     return { start: originalStart, end };
   }, [axes]);
 
+  // 3. دالة begin
   const begin = useCallback((pt: Point, type: DrawingType) => {
     if (!type) return;
     const snap = findSnapToFace(pt, walls, undefined, SNAP);
@@ -50,6 +60,7 @@ export function useDrawing(walls: Wall[], axes: Axis[], onAdd: (w: Wall) => void
     setD({ active: true, type, originalStart: start, start, end: pt });
   }, [walls]);
 
+  // 4. دالة move
   const move = useCallback((pt: Point) => {
     setD(prev => {
       if (!prev.active || !prev.originalStart || !prev.type) return prev;
@@ -74,6 +85,7 @@ export function useDrawing(walls: Wall[], axes: Axis[], onAdd: (w: Wall) => void
     });
   }, [walls, snapToAxis]);
 
+  // 5. دالة finishWithLength
   const finishWithLength = useCallback((length: number) => {
     const cur = ref.current;
     if (!cur.active || !cur.start || !cur.end || !cur.type) return;
@@ -89,8 +101,9 @@ export function useDrawing(walls: Wall[], axes: Axis[], onAdd: (w: Wall) => void
     onAdd(newWall);
     setLastWallId(newWall.id);
     reset();
-  }, [onAdd]);
+  }, [onAdd, reset]);
 
+  // 6. دالة finish
   const finish = useCallback(() => {
     const cur = ref.current;
     if (!cur.active || !cur.start || !cur.end || !cur.type) { reset(); return; }
@@ -99,9 +112,7 @@ export function useDrawing(walls: Wall[], axes: Axis[], onAdd: (w: Wall) => void
     onAdd(newWall);
     setLastWallId(newWall.id);
     reset();
-  }, [onAdd]);
-
-  const reset = useCallback(() => setD({ active: false, type: null, originalStart: null, start: null, end: null }), []);
+  }, [onAdd, reset]);
 
   return { isDrawing: d.active, drawingType: d.type, tempStart: d.start, tempEnd: d.end, lastWallId, begin, move, finish, finishWithLength, cancel: reset };
-         }
+}
