@@ -193,6 +193,7 @@ export default function App() {
       onDimensionFontSizeChange={state.setDimensionFontSize}
       onAddNorthArrow={state.handleAddNorthArrow}
       onAddAxes={state.handleAddAxes}
+      axes={state.axes}
     />
   );
 
