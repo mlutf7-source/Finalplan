@@ -25,10 +25,11 @@ export const AxisLayer: React.FC<Props> = React.memo(({ axes, view, width, heigh
     ctx.scale(scale, scale);
     ctx.clearRect(0, 0, width, height);
 
-    // ✅ نفس منطق DimensionLayer: نصف قطر وخط يتناسبان مع الزوم
-    const bubbleRadius = Math.max(10, 12 * view.zoom);
-    const lineWidth = Math.max(1, 2 * view.zoom);
-    const fontSize = Math.max(9, 14 * view.zoom);
+    // ✅ حجم الفقاعة والخط بنفس منطق الأبعاد (حد أدنى + حد أقصى)
+    const zoomFactor = view.zoom;
+    const bubbleRadius = Math.min(14, Math.max(7, 12 * zoomFactor));
+    const lineWidth = Math.min(3, Math.max(0.8, 1.5 * zoomFactor));
+    const fontSize = Math.min(13, Math.max(8, 12 * zoomFactor));
 
     axes.forEach(axis => {
       const selected = axis.id === selectedId;
@@ -51,7 +52,7 @@ export const AxisLayer: React.FC<Props> = React.memo(({ axes, view, width, heigh
 
       // رسم الخط المتقطع
       ctx.strokeStyle = color;
-      ctx.lineWidth = selected ? lineWidth + 1 : lineWidth;
+      ctx.lineWidth = selected ? lineWidth + 0.5 : lineWidth;
       ctx.setLineDash([8, 6]);
       ctx.beginPath();
       ctx.moveTo(p1.x, p1.y);
@@ -59,9 +60,9 @@ export const AxisLayer: React.FC<Props> = React.memo(({ axes, view, width, heigh
       ctx.stroke();
       ctx.setLineDash([]);
 
-      // رسم الفقاعات مع حجم متناسب مع الزوم
+      // رسم الفقاعات
       const drawBubble = (pos: { x: number; y: number }) => {
-        const r = selected ? bubbleRadius + 2 : bubbleRadius;
+        const r = selected ? bubbleRadius + 1 : bubbleRadius;
         ctx.beginPath();
         ctx.arc(pos.x, pos.y, r, 0, Math.PI * 2);
         ctx.fillStyle = '#fff';
