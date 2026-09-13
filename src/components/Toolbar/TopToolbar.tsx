@@ -70,16 +70,17 @@ export const TopToolbar: React.FC<Props> = ({
 
   return (
     <div style={{ border: '1px solid rgba(192,192,192,0.6)', boxShadow: '0 0 8px rgba(192,192,192,0.3)', borderRadius: 12, padding: 4, background: 'rgba(255,255,255,0.7)', width: '100%', boxSizing: 'border-box', overflow: 'hidden' }}>
-      {/* الصف الأول: الرسم + تراجع/تقدم */}
+
+      {/* الصف الأول: DrawToolbar + تراجع/تقدم */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4, flexWrap: 'nowrap', width: '100%' }}>
-        <div style={{ flex: '0 0 auto', maxWidth: '55%', overflow: 'hidden' }}>
+        <div style={{ flex: '1 1 auto', minWidth: 0, overflow: 'hidden' }}>
           <DrawToolbar mode={mode} drawingType={drawingType} onStartDrawing={onStartDrawing} />
         </div>
-        <button onClick={onUndo} disabled={historyLength === 0} style={{ ...btnStyle(false, { opacity: historyLength === 0 ? 0.5 : 1, flex: 1, fontSize: 14 }), padding: '8px 2px', minWidth: 0 }}>↩️</button>
-        <button onClick={onRedo} disabled={futureLength === 0} style={{ ...btnStyle(false, { opacity: futureLength === 0 ? 0.5 : 1, flex: 1, fontSize: 14 }), padding: '8px 2px', minWidth: 0 }}>↪️</button>
+        <button onClick={onUndo} disabled={historyLength === 0} style={{ ...btnStyle(false, { opacity: historyLength === 0 ? 0.5 : 1, fontSize: 16 }), padding: '8px 8px', flex: '0 0 auto', minWidth: 40 }}>↩️</button>
+        <button onClick={onRedo} disabled={futureLength === 0} style={{ ...btnStyle(false, { opacity: futureLength === 0 ? 0.5 : 1, fontSize: 16 }), padding: '8px 8px', flex: '0 0 auto', minWidth: 40 }}>↪️</button>
       </div>
 
-      {/* الصف الثاني: الأزرار - بدون التفاف، تتقلص حسب الشاشة */}
+      {/* الصف الثاني: الأزرار */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 3, flexWrap: 'nowrap', width: '100%' }}>
         <div style={{ position: 'relative', flex: '1 1 0', minWidth: 0 }}>
           <button onClick={() => toggleMenu('elements')} style={{ ...btnStyle(false, { background: '#f0f8ff' }), width: '100%' }}>➕ عناصر</button>
