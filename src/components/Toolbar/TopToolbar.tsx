@@ -23,6 +23,7 @@ interface Props {
   onDimensionFontSizeChange: (size: number) => void;
   onAddNorthArrow: () => void;
   onAddAxes: (axes: Axis[]) => void;
+  axes: Axis[];
 }
 
 const btnBase: React.CSSProperties = {
@@ -44,7 +45,7 @@ export const TopToolbar: React.FC<Props> = ({
   historyLength, futureLength, onAddAllDimensions, onModeChange,
   layers, onToggleLayer, onToggleAllLayers, allUnlocked,
   dimensionFontSize, onDimensionFontSizeChange, onAddNorthArrow,
-  onAddAxes,
+  onAddAxes, axes,
 }) => {
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [showAxisDialog, setShowAxisDialog] = useState(false);
@@ -215,6 +216,7 @@ export const TopToolbar: React.FC<Props> = ({
         <AxisDialog
           onClose={() => setShowAxisDialog(false)}
           onCreateAxes={(a) => { onAddAxes(a); }}
+          existingAxes={axes}
         />
       )}
     </div>
