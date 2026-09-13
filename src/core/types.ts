@@ -37,3 +37,12 @@ export interface PlanImage {
   locked?: boolean;
   isSelected?: boolean;
   }
+export interface Axis {
+  id: string;
+  type: 'vertical' | 'horizontal';
+  label: string;        // 'A','B','C' للمحاور الرأسية | '1','2','3' للمحاور الأفقية
+  position: number;     // x للمحور الرأسي | y للمحور الأفقي
+  center: number;       // y للمحور الرأسي | x للمحور الأفقي (مركز الخط)
+  length: number;       // طول خط المحور
+  offset: number;       // الإزاحة العمودية (موجب = يمين/أعلى)
+}
