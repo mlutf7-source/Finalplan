@@ -1,9 +1,9 @@
-// TopToolbar.tsx
 import React, { useState } from 'react';
 import { DrawToolbar } from './DrawToolbar';
 import { LayersPanel } from './LayersPanel';
 import type { LayersState } from './LayersPanel';
-import type { AppMode, DrawingType } from '../../core/types';
+import type { AppMode, DrawingType, Axis } from '../../core/types';
+import { AxisDialog } from '../Axis/AxisDialog';
 
 interface Props {
   mode: AppMode;
@@ -22,6 +22,7 @@ interface Props {
   dimensionFontSize: number;
   onDimensionFontSizeChange: (size: number) => void;
   onAddNorthArrow: () => void;
+  onAddAxes: (axes: Axis[]) => void;
 }
 
 const btnBase: React.CSSProperties = {
@@ -40,8 +41,10 @@ export const TopToolbar: React.FC<Props> = ({
   historyLength, futureLength, onAddAllDimensions, onModeChange,
   layers, onToggleLayer, onToggleAllLayers, allUnlocked,
   dimensionFontSize, onDimensionFontSizeChange, onAddNorthArrow,
+  onAddAxes,
 }) => {
   const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const [showAxisDialog, setShowAxisDialog] = useState(false);
   const toggleMenu = (menu: string) => setOpenMenu(prev => (prev === menu ? null : menu));
   const btnStyle = (active: boolean, extra?: React.CSSProperties): React.CSSProperties => ({
     ...btnBase,
@@ -56,7 +59,6 @@ export const TopToolbar: React.FC<Props> = ({
   };
   const itemStyle: React.CSSProperties = { padding: '4px', cursor: 'pointer', fontSize: 16 };
 
-  // دالة تحويل آمنة
   const safeParse = (val: string, fallback: number) => {
     if (val === '' || val === '.' || val === ',') return fallback;
     const num = parseFloat(val.replace(',', '.'));
@@ -74,7 +76,6 @@ export const TopToolbar: React.FC<Props> = ({
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        {/* عناصر */}
         <div style={{ position: 'relative', flex: 1 }}>
           <button onClick={() => toggleMenu('elements')} style={{ ...btnStyle(false, { background: '#f0f8ff' }), width: '100%' }}>➕ عناصر ▾</button>
           {openMenu === 'elements' && (
@@ -86,7 +87,6 @@ export const TopToolbar: React.FC<Props> = ({
           )}
         </div>
 
-        {/* تفاصيل */}
         <div style={{ position: 'relative', flex: 1 }}>
           <button onClick={() => toggleMenu('details')} style={{ ...btnStyle(false, { background: '#f0f8ff' }), width: '100%' }}>📋 تفاصيل ▾</button>
           {openMenu === 'details' && (
@@ -117,7 +117,6 @@ export const TopToolbar: React.FC<Props> = ({
           )}
         </div>
 
-        {/* مناطق */}
         <div style={{ position: 'relative', flex: 1 }}>
           <button onClick={() => toggleMenu('regions')} style={{ ...btnStyle(false, { background: '#fff8e1' }), width: '100%' }}>🎨 مناطق ▾</button>
           {openMenu === 'regions' && (
@@ -130,9 +129,20 @@ export const TopToolbar: React.FC<Props> = ({
         </div>
 
         <div style={{ flex: 1 }}>
+          <button onClick={() => setShowAxisDialog(true)} style={{ ...btnStyle(false, { background: '#f0fff0' }), width: '100%' }}>📐 المحاور</button>
+        </div>
+
+        <div style={{ flex: 1 }}>
           <LayersPanel layers={layers} onToggleLayer={onToggleLayer} onToggleAll={onToggleAllLayers} allUnlocked={allUnlocked} />
         </div>
       </div>
+
+      {showAxisDialog && (
+        <AxisDialog
+          onClose={() => setShowAxisDialog(false)}
+          onCreateAxes={(a) => { onAddAxes(a); }}
+        />
+      )}
     </div>
   );
 };
