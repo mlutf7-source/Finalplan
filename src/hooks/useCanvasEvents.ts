@@ -1,5 +1,5 @@
 import { useRef, useCallback } from 'react';
-import type { Wall, AppMode, DrawingType, TextElement, Stair, NorthArrow, Point, PlanImage } from '../core/types';
+import type { Wall, AppMode, DrawingType, TextElement, Stair, NorthArrow, Point, PlanImage, Axis } from '../core/types';
 import type { Dimension } from '../core/dimensionTypes';
 import type { RoomRegion, RegionType } from '../core/regionTypes';
 import type { LayersState } from '../components/Toolbar/LayersPanel';
@@ -9,29 +9,13 @@ import { useCanvasSetup } from './useCanvasSetup';
 type SetupReturn = ReturnType<typeof useCanvasSetup>;
 
 interface EventsProps {
-  walls: Wall[];
-  mode: AppMode;
-  drawingType: DrawingType;
-  onModeChange: (m: AppMode) => void;
-  dimensions: Dimension[];
-  layers: LayersState;
-  texts: TextElement[];
-  regions: RoomRegion[];
-  stairs: Stair[];
-  northArrows: NorthArrow[];
-  frozen: boolean;
-  onAddStairAtPoint: (pt: Point) => void;
-  onUpdateStair: (id: string, patch: Partial<Stair>) => void;
-  onPlaceColumn: (pt: Point) => void;
-  onPlaceWindow: (pt: Point) => void;
-  onPlaceDoor: (pt: Point) => void;
-  onPlaceRegion: (pt: Point, type: RegionType) => void;
-  onAddText: (position: Point, text: string) => void;
-  setup: SetupReturn;
-  // ✅ إضافة خصائص الصورة
-  planImage?: PlanImage | null;
-  onPlanImageChange?: (img: PlanImage) => void;
-  onImageSelect?: (id: string | null) => void;
+  walls: Wall[]; mode: AppMode; drawingType: DrawingType; onModeChange: (m: AppMode) => void;
+  dimensions: Dimension[]; layers: LayersState; texts: TextElement[]; regions: RoomRegion[]; stairs: Stair[]; northArrows: NorthArrow[];
+  frozen: boolean; onAddStairAtPoint: (pt: Point) => void; onUpdateStair: (id: string, patch: Partial<Stair>) => void;
+  onPlaceColumn: (pt: Point) => void; onPlaceWindow: (pt: Point) => void; onPlaceDoor: (pt: Point) => void; onPlaceRegion: (pt: Point, type: RegionType) => void;
+  onAddText: (position: Point, text: string) => void; setup: SetupReturn;
+  planImage?: PlanImage | null; onPlanImageChange?: (img: PlanImage) => void; onImageSelect?: (id: string | null) => void;
+  axes: Axis[];
 }
 
 function isPointInPolygon(pt: Point, polygon: Point[]): boolean {
@@ -44,18 +28,14 @@ function isPointInPolygon(pt: Point, polygon: Point[]): boolean {
   }
   return inside;
 }
-
-function isPointNearStair(pt: Point, stair: Stair): boolean {
-  return isPointInPolygon(pt, stair.polygon);
-}
+function isPointNearStair(pt: Point, stair: Stair): boolean { return isPointInPolygon(pt, stair.polygon); }
 
 export function useCanvasEvents({
   walls, mode, drawingType, onModeChange, dimensions, layers, texts, regions, stairs, northArrows, frozen,
   onAddStairAtPoint, onUpdateStair, onPlaceColumn, onPlaceWindow, onPlaceDoor, onPlaceRegion, onAddText, setup,
-  planImage, onPlanImageChange, onImageSelect,
+  planImage, onPlanImageChange, onImageSelect, axes,
 }: EventsProps) {
-  const { containerRef, view, setZoom, pan, setView, drawing, edit, dimensionMode, dimensionEdit, elementEdit, textEdit, stairEdit, northArrowEdit, clipFrameEdit, setSelectedRegionId, setSelectedStairId } = setup;
-
+  const { containerRef, view, setZoom, pan, setView, drawing, edit, dimensionMode, dimensionEdit, elementEdit, textEdit, stairEdit, northArrowEdit, clipFrameEdit, axisEdit, setSelectedRegionId, setSelectedStairId } = setup;
   const pointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
   const pinchRef = useRef<{ dist: number; zoom: number; cx: number; cy: number } | null>(null);
   const downPointRef = useRef<{ world: { x: number; y: number }; type: string } | null>(null);
@@ -69,8 +49,7 @@ export function useCanvasEvents({
   }, [view, containerRef]);
 
   const zoomAtPoint = useCallback((cx: number, cy: number, factor: number) => {
-    const rect = containerRef.current?.getBoundingClientRect();
-    if (!rect) return;
+    const rect = containerRef.current?.getBoundingClientRect(); if (!rect) return;
     const scale = PX_PER_METER * view.zoom;
     const wx = (cx - rect.width / 2) / scale - view.offsetX;
     const wy = (cy - rect.height / 2) / scale - view.offsetY;
@@ -80,39 +59,29 @@ export function useCanvasEvents({
   }, [view, setView, containerRef]);
 
   const onPointerDown = useCallback((e: React.PointerEvent) => {
-    const rect = containerRef.current?.getBoundingClientRect();
-    if (!rect) return;
+    const rect = containerRef.current?.getBoundingClientRect(); if (!rect) return;
     const cx = e.clientX - rect.left, cy = e.clientY - rect.top;
     pointersRef.current.set(e.pointerId, { x: cx, y: cy });
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-
     if (pointersRef.current.size === 2 && mode !== 'drawing' && mode !== 'dimension') {
       const pts = Array.from(pointersRef.current.values());
       pinchRef.current = { dist: Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y), zoom: view.zoom, cx: (pts[0].x + pts[1].x) / 2, cy: (pts[0].y + pts[1].y) / 2 };
-      downPointRef.current = null;
-      return;
+      downPointRef.current = null; return;
     }
+    const pt = getPoint(e); if (!pt) return;
 
-    const pt = getPoint(e);
-    if (!pt) return;
-
-    // ✅ تعديل: السماح بالرسم فوق الصورة إذا كانت أداة الرسم مفعلة، وتحديد الصورة فقط في وضع العرض
-if (planImage && !planImage.locked && onPlanImageChange && mode === 'view') {
-  const p1 = { x: planImage.x, y: planImage.y };
-  const p2 = { x: planImage.x + planImage.width, y: planImage.y + planImage.height };
-  const isInside = pt.world.x >= p1.x && pt.world.x <= p2.x && pt.world.y >= p1.y && pt.world.y <= p2.y;
-  if (isInside) {
-    if (onImageSelect) onImageSelect(planImage.id || 'image-1');
-    downPointRef.current = { world: pt.world, type: 'dragImage' };
-    return;
-  }
-}
-
+    if (planImage && !planImage.locked && onPlanImageChange && mode === 'view') {
+      const p1 = { x: planImage.x, y: planImage.y };
+      const p2 = { x: planImage.x + planImage.width, y: planImage.y + planImage.height };
+      if (pt.world.x >= p1.x && pt.world.x <= p2.x && pt.world.y >= p1.y && pt.world.y <= p2.y) {
+        if (onImageSelect) onImageSelect(planImage.id || 'image-1');
+        downPointRef.current = { world: pt.world, type: 'dragImage' }; return;
+      }
+    }
     if (setup.clipFrame && clipFrameEdit.hitTest(pt.world, setup.clipFrame)) {
       const dragMode = clipFrameEdit.detectMode(pt.world, setup.clipFrame);
       clipFrameEdit.select(setup.clipFrame.id, pt.world, dragMode);
-      downPointRef.current = { world: pt.world, type: 'clipFrameEdit' };
-      return;
+      downPointRef.current = { world: pt.world, type: 'clipFrameEdit' }; return;
     }
 
     if (mode === 'stair') { onAddStairAtPoint(pt.world); downPointRef.current = null; return; }
@@ -124,21 +93,29 @@ if (planImage && !planImage.locked && onPlanImageChange && mode === 'view') {
     if (mode === 'drawing') { if (layers.walls) drawing.begin(pt.world, drawingType); downPointRef.current = null; return; }
     if (mode === 'dimension') { if (layers.dimensions) { dimensionMode.begin(pt.world); downPointRef.current = { world: pt.world, type: 'dimension' }; } return; }
 
-    // ✅ باقي نظام التحديد
+    // ✅ المحاور: فقط في وضع العرض وعندما تكون طبقتها مفتوحة
+    if (mode === 'view' && layers.axes) {
+      const hitAxis = axes.find(a => axisEdit.hitTest(pt.world, a));
+      if (hitAxis) {
+        const dragMode = axisEdit.detectMode(pt.world, hitAxis);
+        axisEdit.select(hitAxis.id, pt.world, dragMode);
+        downPointRef.current = { world: pt.world, type: 'axisEdit' }; return;
+      }
+    }
+
     if (northArrows.length > 0 && layers.northArrow) { const hitArrow = northArrows.find(a => northArrowEdit.hitTest(pt.world, a)); if (hitArrow) { const dragMode = northArrowEdit.detectMode(pt.world, hitArrow); northArrowEdit.select(hitArrow.id, pt.world, dragMode); downPointRef.current = { world: pt.world, type: 'northArrowEdit' }; return; } }
     if (layers.texts) { const hitText = texts.find(t => textEdit.hitTest(pt.world, t)); if (hitText) { const dragMode = textEdit.detectMode(pt.world, hitText); textEdit.select(hitText.id, pt.world, dragMode); downPointRef.current = { world: pt.world, type: 'textEdit' }; return; } }
     if (regions.length > 0 && layers.regions) { const hitRegion = regions.find(r => isPointInPolygon(pt.world, r.polygon)); if (hitRegion) { setSelectedRegionId(hitRegion.id); downPointRef.current = { world: pt.world, type: 'regionEdit' }; return; } else { setSelectedRegionId(null); } }
     if (stairs.length > 0 && layers.stairs) { const hitStair = stairs.find(s => isPointNearStair(pt.world, s)); if (hitStair) { setSelectedStairId(hitStair.id); stairDragCandidateRef.current = { pt: pt.world, stair: hitStair }; downPointRef.current = { world: pt.world, type: 'stairCandidate' }; return; } else { setSelectedStairId(null); } }
     const elementHit = elementEdit.hitTest(pt.world);
-if (elementHit) { const layerKey = elementHit.type === 'column' ? 'columns' : elementHit.type === 'window' ? 'windows' : 'doors'; if (layers[layerKey]) { const dragMode = elementEdit.detectMode(pt.world, elementHit.id, elementHit.type); elementEdit.select(elementHit.id, elementHit.type, pt.world, dragMode); downPointRef.current = { world: pt.world, type: 'elementEdit' }; return; } }
+    if (elementHit) { const layerKey = elementHit.type === 'column' ? 'columns' : elementHit.type === 'window' ? 'windows' : 'doors'; if (layers[layerKey]) { const dragMode = elementEdit.detectMode(pt.world, elementHit.id, elementHit.type); elementEdit.select(elementHit.id, elementHit.type, pt.world, dragMode); downPointRef.current = { world: pt.world, type: 'elementEdit' }; return; } }
     if (layers.dimensions) { if (dimensionEdit.selectedDimId) { const selectedDim = dimensions.find(d => d.id === dimensionEdit.selectedDimId); if (selectedDim) { const hit = dimensionEdit.hitTest(pt.world, selectedDim); if (hit !== null) { dimensionEdit.select(selectedDim.id, hit, pt.world); downPointRef.current = { world: pt.world, type: 'dimensionEdit' }; return; } } } if (dimensions.length > 0) { const hitDim = dimensions.map(dim => ({ dim, type: dimensionEdit.hitTest(pt.world, dim) })).find(h => h.type !== null); if (hitDim && hitDim.type) { dimensionEdit.select(hitDim.dim.id, hitDim.type, pt.world); downPointRef.current = { world: pt.world, type: 'dimensionEdit' }; return; } } }
     if (layers.walls) { if (edit.selectedWallId) { const selectedWall = walls.find(w => w.id === edit.selectedWallId); if (selectedWall) { const hit = edit.hitTest(pt.world, selectedWall); if (hit !== 'none') { edit.select(selectedWall.id, hit, pt.world); downPointRef.current = { world: pt.world, type: 'edit' }; onModeChange('edit'); return; } } } const hitWall = walls.map(w => ({ w, t: edit.hitTest(pt.world, w) })).find(h => h.t !== 'none'); if (hitWall) { edit.select(hitWall.w.id, hitWall.t, pt.world); downPointRef.current = { world: pt.world, type: 'edit' }; onModeChange('edit'); return; } }
     downPointRef.current = { world: pt.world, type: 'pan' };
-  }, [mode, drawingType, walls, dimensions, layers, texts, regions, stairs, northArrows, getPoint, drawing, edit, dimensionMode, dimensionEdit, elementEdit, textEdit, northArrowEdit, clipFrameEdit, onModeChange, view, onAddStairAtPoint, onUpdateStair, onPlaceColumn, onPlaceWindow, onPlaceDoor, onPlaceRegion, onAddText, containerRef, setSelectedRegionId, setSelectedStairId, setup, planImage, onPlanImageChange, onImageSelect]);
+  }, [mode, drawingType, walls, dimensions, layers, texts, regions, stairs, northArrows, axes, getPoint, drawing, edit, dimensionMode, dimensionEdit, elementEdit, textEdit, northArrowEdit, clipFrameEdit, axisEdit, onModeChange, view, onAddStairAtPoint, onUpdateStair, onPlaceColumn, onPlaceWindow, onPlaceDoor, onPlaceRegion, onAddText, containerRef, setSelectedRegionId, setSelectedStairId, setup, planImage, onPlanImageChange, onImageSelect]);
 
   const onPointerMove = useCallback((e: React.PointerEvent) => {
-    const rect = containerRef.current?.getBoundingClientRect();
-    if (!rect) return;
+    const rect = containerRef.current?.getBoundingClientRect(); if (!rect) return;
     const cx = e.clientX - rect.left, cy = e.clientY - rect.top;
     if (pointersRef.current.has(e.pointerId)) pointersRef.current.set(e.pointerId, { x: cx, y: cy });
     if (pointersRef.current.size === 2 && pinchRef.current) {
@@ -147,19 +124,16 @@ if (elementHit) { const layerKey = elementHit.type === 'column' ? 'columns' : el
       zoomAtPoint(pinchRef.current.cx, pinchRef.current.cy, (nd / pinchRef.current.dist) * (pinchRef.current.zoom / view.zoom));
       return;
     }
-    const pt = getPoint(e);
-    if (!pt) return;
+    const pt = getPoint(e); if (!pt) return;
 
-    // ✅ 2. تحريك الصورة عند سحبها
     if (downPointRef.current?.type === 'dragImage' && onPlanImageChange && planImage) {
       const dx = pt.world.x - downPointRef.current.world.x;
       const dy = pt.world.y - downPointRef.current.world.y;
       onPlanImageChange({ ...planImage, x: planImage.x + dx, y: planImage.y + dy });
-      downPointRef.current.world = pt.world;
-      return;
+      downPointRef.current.world = pt.world; return;
     }
-
     if (downPointRef.current?.type === 'clipFrameEdit') { clipFrameEdit.moveDrag(pt.world); return; }
+    if (downPointRef.current?.type === 'axisEdit') { axisEdit.moveDrag(pt.world); return; }
     if (stairDragCandidateRef.current && downPointRef.current?.type === 'stairCandidate') { const candidate = stairDragCandidateRef.current; const distMoved = Math.hypot(pt.world.x - candidate.pt.x, pt.world.y - candidate.pt.y); if (distMoved > 0.05) { stairEdit.start(candidate.pt, candidate.stair, 'move'); stairDragCandidateRef.current = null; downPointRef.current = { world: pt.world, type: 'stairEdit' }; return; } else { return; } }
     if (mode === 'drawing' && drawing.isDrawing) { drawing.move(pt.world); return; }
     if (mode === 'dimension' && dimensionMode.isActive) { dimensionMode.move(pt.world); return; }
@@ -169,8 +143,8 @@ if (elementHit) { const layerKey = elementHit.type === 'column' ? 'columns' : el
     if (downPointRef.current?.type === 'textEdit') { textEdit.moveDrag(pt.world); return; }
     if (downPointRef.current?.type === 'stairEdit' && stairEdit.isDragging()) { const selectedStair = stairs.find(s => s.id === setup.selectedStairId); if (selectedStair) stairEdit.move(pt.world, (updated) => onUpdateStair(selectedStair.id, updated)); return; }
     if (mode === 'edit' && edit.isEditing && downPointRef.current?.type === 'edit') { edit.moveEdit(pt.world); return; }
-    if (mode !== 'drawing' && mode !== 'dimension' && e.buttons === 1 && pointersRef.current.size === 1 && downPointRef.current?.type !== 'edit' && downPointRef.current?.type !== 'dimensionEdit' && downPointRef.current?.type !== 'elementEdit' && downPointRef.current?.type !== 'textEdit' && downPointRef.current?.type !== 'regionEdit' && downPointRef.current?.type !== 'stairEdit' && downPointRef.current?.type !== 'northArrowEdit' && downPointRef.current?.type !== 'clipFrameEdit' && downPointRef.current?.type !== 'dragImage') { pan(e.movementX / (PX_PER_METER * view.zoom), e.movementY / (PX_PER_METER * view.zoom)); }
-  }, [mode, drawing, dimensionMode, dimensionEdit, elementEdit, textEdit, stairEdit, northArrowEdit, clipFrameEdit, edit, pan, view, getPoint, zoomAtPoint, containerRef, stairs, setup.selectedStairId, onUpdateStair, planImage, onPlanImageChange]);
+    if (mode !== 'drawing' && mode !== 'dimension' && e.buttons === 1 && pointersRef.current.size === 1 && downPointRef.current?.type !== 'edit' && downPointRef.current?.type !== 'dimensionEdit' && downPointRef.current?.type !== 'elementEdit' && downPointRef.current?.type !== 'textEdit' && downPointRef.current?.type !== 'regionEdit' && downPointRef.current?.type !== 'stairEdit' && downPointRef.current?.type !== 'northArrowEdit' && downPointRef.current?.type !== 'clipFrameEdit' && downPointRef.current?.type !== 'dragImage' && downPointRef.current?.type !== 'axisEdit') { pan(e.movementX / (PX_PER_METER * view.zoom), e.movementY / (PX_PER_METER * view.zoom)); }
+  }, [mode, drawing, dimensionMode, dimensionEdit, elementEdit, textEdit, stairEdit, northArrowEdit, clipFrameEdit, axisEdit, edit, pan, view, getPoint, zoomAtPoint, containerRef, stairs, setup.selectedStairId, onUpdateStair, planImage, onPlanImageChange]);
 
   const onPointerUp = useCallback((e: React.PointerEvent) => {
     (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
@@ -181,12 +155,8 @@ if (elementHit) { const layerKey = elementHit.type === 'column' ? 'columns' : el
     if (drawing.isDrawing) drawing.finish();
     if (dimensionMode.isActive) dimensionMode.finish();
     if (edit.isEditing) edit.endEdit();
-    elementEdit.endDrag();
-    textEdit.endDrag();
-    stairEdit.end();
-    northArrowEdit.endDrag();
-    clipFrameEdit.endDrag();
-  }, [drawing, dimensionMode, edit, elementEdit, textEdit, stairEdit, northArrowEdit, clipFrameEdit]);
+    elementEdit.endDrag(); textEdit.endDrag(); stairEdit.end(); northArrowEdit.endDrag(); clipFrameEdit.endDrag(); axisEdit.endDrag();
+  }, [drawing, dimensionMode, edit, elementEdit, textEdit, stairEdit, northArrowEdit, clipFrameEdit, axisEdit]);
 
   return { onPointerDown, onPointerMove, onPointerUp, zoomAtPoint };
-                                                    }
+  }
