@@ -21,7 +21,7 @@ const [mode, setMode] = useState<AppMode>('view');
 const [drawingType, setDrawingType] = useState<DrawingType>(null);
 const [dimensions, setDimensions] = useState<Dimension[]>([]);
 const [dimensionFontSize, setDimensionFontSize] = useState(40);
-  const [axes, setAxes] = useState<Axis[]>([]);
+const [axes, setAxes] = useState<Axis[]>([]);
 const [layers, setLayers] = useState<LayersState>({ walls: true, dimensions: true, columns: true, windows: true, doors: true, texts: true, regions: true, stairs: true, northArrow: true, axes: true });
 const [showQuantities, setShowQuantities] = useState(false);
 const [activeTab, setActiveTab] = useState<'preliminary' | 'structure' | 'finishes' | 'prices' | 'summary'>('finishes');
@@ -42,7 +42,18 @@ const handleWallsChange = useCallback((newWalls: Wall[]) => { commit(); setWalls
 const handleDimensionsChange = useCallback((newDims: Dimension[]) => { commit(); setDimensions(newDims); }, [commit]);
 const handleAddDimension = useCallback((dim: Dimension) => { commit(); setDimensions(prev => [...prev, dim]); }, [commit]);
 const handleAddAllDimensions = useCallback(() => { const dims = generateDimensionsForWalls(walls); commit(); setDimensions(prev => [...prev, ...dims]); }, [walls, commit]);
-const handlePlaceColumn = useCallback((pt: Point) => { commit(); elements.addColumn({ position: pt, width: DEFAULT_COLUMN.width, length: DEFAULT_COLUMN.length }); }, [elements, commit]);
+
+// ✅ تعديل 1: التقاط العمود على المحور
+const handlePlaceColumn = useCallback((pt: Point) => {
+  commit();
+  let snapped = { ...pt };
+  const vAxis = axes.find(a => a.type === 'vertical' && Math.abs(pt.x - (a.position + a.offset)) < 0.4);
+  if (vAxis) snapped.x = vAxis.position + vAxis.offset;
+  const hAxis = axes.find(a => a.type === 'horizontal' && Math.abs(pt.y - (a.position - a.offset)) < 0.4);
+  if (hAxis) snapped.y = hAxis.position - hAxis.offset;
+  elements.addColumn({ position: snapped, width: DEFAULT_COLUMN.width, length: DEFAULT_COLUMN.length });
+}, [elements, commit, axes]);
+
 const handlePlaceWindow = useCallback((pt: Point) => { const nearest = findNearestWall(walls, pt); if (!nearest) return; const bestWall = nearest.wall; const len = distance(bestWall.start, bestWall.end); if (len <= 0) return; const pos = distance(bestWall.start, nearest.point); const center = { x: bestWall.start.x + ((pos + DEFAULT_WINDOW.width / 2) / len) * (bestWall.end.x - bestWall.start.x), y: bestWall.start.y + ((pos + DEFAULT_WINDOW.width / 2) / len) * (bestWall.end.y - bestWall.start.y) }; commit(); elements.addWindow({ wallId: bestWall.id, position: pos, width: DEFAULT_WINDOW.width, height: DEFAULT_WINDOW.height, center }); }, [walls, elements, commit]);
 const handlePlaceDoor = useCallback((pt: Point) => { const nearest = findNearestWall(walls, pt); if (!nearest) return; const bestWall = nearest.wall; const len = distance(bestWall.start, bestWall.end); if (len <= 0) return; const pos = distance(bestWall.start, nearest.point); const center = { x: bestWall.start.x + ((pos + DEFAULT_DOOR.width / 2) / len) * (bestWall.end.x - bestWall.start.x), y: bestWall.start.y + ((pos + DEFAULT_DOOR.width / 2) / len) * (bestWall.end.y - bestWall.start.y) }; commit(); elements.addDoor({ wallId: bestWall.id, position: pos, width: DEFAULT_DOOR.width, height: DEFAULT_DOOR.height, center }); }, [walls, elements, commit]);
 const handlePlaceRegion = useCallback((pt: Point, type: RegionType) => { commit(); regionsManager.addRegion(pt, type); setMode('view'); }, [regionsManager, commit]);
@@ -86,13 +97,12 @@ const handleLoadProject = useCallback((id: string) => { const data = projectMana
 const handleDeleteProject = useCallback((id: string) => { projectManager.deleteProject(id); setCurrentProjectName(''); }, [projectManager]);
 const handleNewProject = useCallback(() => { setWalls([]); setDimensions([]); elements.setAllElements([], [], [], []); regionsManager.setRegions([]); textManager.setAllTexts([]); stairManager.setAllStairs([]); setAxes([]); projectManager.createNewProject(); savedSnapshotRef.current = ''; setCurrentProjectName(''); setIsDirty(false); }, [elements, regionsManager, textManager, stairManager, projectManager]);
 
-// ✅ حالة الصورة
 const [planImage, setPlanImage] = useState<PlanImage | null>(null);
 
-// ✅ حالة المحاور
-const handleAddAxes = useCallback((newAxes: Axis[]) => { commit(); setAxes(prev => [...prev, ...newAxes]); }, [commit]);
+// ✅ تعديل 2: استبدال بدلاً من الإضافة (لمنع التكرار)
+const handleAddAxes = useCallback((newAxes: Axis[]) => { commit(); setAxes(newAxes); }, [commit]);
 const handleUpdateAxis = useCallback((id: string, patch: Partial<Axis>) => { commit(); setAxes(prev => prev.map(a => a.id === id ? { ...a, ...patch } : a)); }, [commit]);
 const handleDeleteAxis = useCallback((id: string) => { commit(); setAxes(prev => prev.filter(a => a.id !== id)); }, [commit]);
 
 return { walls, setWalls, mode, setMode, drawingType, setDrawingType, dimensions, setDimensions, dimensionFontSize, setDimensionFontSize, layers, toggleLayer, toggleAllLayers, allUnlocked, setAllLayersLocked, showQuantities, setShowQuantities, activeTab, setActiveTab, elements, regionsManager, textManager, stairManager, results, history, future, handleUndo, handleRedo, handleWallsChange, handleDimensionsChange, handleAddDimension, handleAddAllDimensions, handlePlaceColumn, handlePlaceWindow, handlePlaceDoor, handlePlaceRegion, handleDeleteRegion, handleAddText, handleUpdateText, handleDeleteText, handleCopyText, handleUpdateColumn, handleUpdateWindow, handleUpdateDoor, handleDeleteColumn, handleDeleteWindow, handleDeleteDoor, handleAddStairAtPoint, handleUpdateStair, handleDeleteStair, handleAddNorthArrow, handleUpdateNorthArrow, handleCancelTool, toolsActive, projectManager, handleSaveProject, handleLoadProject, handleDeleteProject, handleNewProject, isDirty, currentProjectName, clipFrame, setClipFrame: handleSetClipFrame, view, setView, planImage, setPlanImage, axes, setAxes, handleAddAxes, handleUpdateAxis, handleDeleteAxis };
-                                                                                                                                                                                                                                                                                                                                                                                                                                      }
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      }
