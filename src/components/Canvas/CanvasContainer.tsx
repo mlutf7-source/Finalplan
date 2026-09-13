@@ -5,6 +5,7 @@ import { CanvasZoomControls } from './CanvasZoomControls';
 import { WallProperties } from '../Properties/WallProperties';
 import { ElementProperties } from '../Properties/ElementProperties';
 import { StairProperties } from '../Properties/StairProperties';
+import { AxisProperties } from '../Properties/AxisProperties';
 import { useCanvasSetup } from '../../hooks/useCanvasSetup';
 import { useCanvasEvents } from '../../hooks/useCanvasEvents';
 import { rebuildStairPolygon } from '../../core/stairGeometry';
@@ -82,10 +83,64 @@ export const CanvasContainer: React.FC<Props> = (props) => {
       {selectedStairId && (
         <StairProperties stair={props.stairs.find(s => s.id === selectedStairId) ?? null} onChangeWidth={(w) => { const s = props.stairs.find(s => s.id === selectedStairId); if (s) props.onUpdateStair(selectedStairId, rebuildStairPolygon({ ...s, width: w })); }} onChangeTotalLength={(l) => { const s = props.stairs.find(s => s.id === selectedStairId); if (s) props.onUpdateStair(selectedStairId, rebuildStairPolygon({ ...s, totalLength: l })); }} onChangeLandingLength={(l) => props.onUpdateStair(selectedStairId, { landingLength: l })} onChangeTreadDepth={(d) => props.onUpdateStair(selectedStairId, { treadDepth: d })} onChangeRiserHeight={(h) => props.onUpdateStair(selectedStairId, { riserHeight: h })} onRotate={() => { const s = props.stairs.find(s => s.id === selectedStairId); if (s) { props.onUpdateStair(selectedStairId, rebuildStairPolygon({ ...s, rotation: (s.rotation || 0) + Math.PI / 2 })); } }} />
       )}
+      {setup.axisEdit.selectedAxisId && (
+        <AxisProperties
+          axis={props.axes.find(a => a.id === setup.axisEdit.selectedAxisId) ?? null}
+          onChangeLength={(len) => props.onUpdateAxis(setup.axisEdit.selectedAxisId!, { length: len })}
+          onChangeOffset={(off) => props.onUpdateAxis(setup.axisEdit.selectedAxisId!, { offset: off })}
+        />
+      )}
       <div style={{ position: 'relative' }}>
-        <CanvasSidebars showRightSidebar={showRightSidebar} showLeftSidebar={showLeftSidebar} lockOptions={{ direction: edit.lockOptions.direction, length: edit.lockOptions.length, move: edit.lockOptions.move }} onToggleLockDirection={edit.toggleLockDirection} onToggleLockLength={edit.toggleLockLength} onToggleLockMove={edit.toggleLockMove} onDeleteWall={edit.deleteSelected} onCopyWall={edit.copySelected} onDeleteColumn={() => props.onDeleteColumn(elementEdit.selected?.id ?? '')} onDeleteWindow={() => props.onDeleteWindow(elementEdit.selected?.id ?? '')} onDeleteDoor={() => props.onDeleteDoor(elementEdit.selected?.id ?? '')} onDeleteDimension={setup.dimensionEdit.deleteSelected} onCopyText={() => { const t = props.texts.find(x => x.id === textEdit.selectedTextId); if (t) props.onCopyText(t); }} onDeleteText={() => { if (textEdit.selectedTextId) props.onDeleteText(textEdit.selectedTextId); textEdit.deselect(); }} onDeleteRegion={() => { if (selectedRegionId) props.onDeleteRegion(selectedRegionId); setSelectedRegionId(null); }} onDeleteStair={() => { if (selectedStairId) props.onDeleteStair(selectedStairId); setSelectedStairId(null); }} onDeselectAll={deselectAll} selectedType={selectedType === 'northArrow' || selectedType === 'clipFrame' ? null : selectedType} />
+        <CanvasSidebars
+          showRightSidebar={showRightSidebar}
+          showLeftSidebar={showLeftSidebar}
+          lockOptions={{ direction: edit.lockOptions.direction, length: edit.lockOptions.length, move: edit.lockOptions.move }}
+          onToggleLockDirection={edit.toggleLockDirection}
+          onToggleLockLength={edit.toggleLockLength}
+          onToggleLockMove={edit.toggleLockMove}
+          onDeleteWall={edit.deleteSelected}
+          onCopyWall={edit.copySelected}
+          onDeleteColumn={() => props.onDeleteColumn(elementEdit.selected?.id ?? '')}
+          onDeleteWindow={() => props.onDeleteWindow(elementEdit.selected?.id ?? '')}
+          onDeleteDoor={() => props.onDeleteDoor(elementEdit.selected?.id ?? '')}
+          onDeleteDimension={setup.dimensionEdit.deleteSelected}
+          onCopyText={() => { const t = props.texts.find(x => x.id === textEdit.selectedTextId); if (t) props.onCopyText(t); }}
+          onDeleteText={() => { if (textEdit.selectedTextId) props.onDeleteText(textEdit.selectedTextId); textEdit.deselect(); }}
+          onDeleteRegion={() => { if (selectedRegionId) props.onDeleteRegion(selectedRegionId); setSelectedRegionId(null); }}
+          onDeleteStair={() => { if (selectedStairId) props.onDeleteStair(selectedStairId); setSelectedStairId(null); }}
+          onDeleteAxis={() => { if (setup.axisEdit.selectedAxisId) props.onDeleteAxis(setup.axisEdit.selectedAxisId); setup.axisEdit.deselect(); }}
+          onDeselectAll={deselectAll}
+          selectedType={selectedType === 'northArrow' || selectedType === 'clipFrame' ? null : selectedType}
+        />
         <div ref={containerRef} data-floor-plan-stage="true" data-zoom={view.zoom} data-offset-x={view.offsetX} data-offset-y={view.offsetY} style={{ width: '100%', height: 450, touchAction: 'none', overflow: 'hidden', position: 'relative', cursor: toolActive ? 'crosshair' : props.mode === 'edit' ? 'move' : 'grab' }} onPointerDown={events.onPointerDown} onPointerMove={events.onPointerMove} onPointerUp={events.onPointerUp} onPointerCancel={events.onPointerUp}>
-          <CanvasLayers walls={props.walls} view={view} width={size.w} height={size.h} selectedWallId={edit.selectedWallId} tempStart={drawing.tempStart} tempEnd={drawing.tempEnd} columns={props.columns} windows={props.windows} doors={props.doors} texts={props.texts} regions={props.regions} stairs={props.stairs} northArrows={props.northArrows} selectedNorthArrowId={setup.northArrowEdit.selectedNorthArrowId} selectedClipFrameId={setup.clipFrameEdit.selectedClipFrameId} selectedStairId={selectedStairId} selectedElement={elementEdit.selected} selectedTextId={textEdit.selectedTextId} dimensions={props.dimensions} dimensionFontSize={props.dimensionFontSize} selectedDimId={setup.dimensionEdit.selectedDimId} clipFrames={props.clipFrame ? [props.clipFrame] : []} planImage={props.planImage} axes={props.axes} selectedAxisId={props.selectedAxisId} />
+          <CanvasLayers
+            walls={props.walls}
+            view={view}
+            width={size.w}
+            height={size.h}
+            selectedWallId={edit.selectedWallId}
+            tempStart={drawing.tempStart}
+            tempEnd={drawing.tempEnd}
+            columns={props.columns}
+            windows={props.windows}
+            doors={props.doors}
+            texts={props.texts}
+            regions={props.regions}
+            stairs={props.stairs}
+            northArrows={props.northArrows}
+            selectedNorthArrowId={setup.northArrowEdit.selectedNorthArrowId}
+            selectedClipFrameId={setup.clipFrameEdit.selectedClipFrameId}
+            selectedStairId={selectedStairId}
+            selectedElement={elementEdit.selected}
+            selectedTextId={textEdit.selectedTextId}
+            dimensions={props.dimensions}
+            dimensionFontSize={props.dimensionFontSize}
+            selectedDimId={setup.dimensionEdit.selectedDimId}
+            clipFrames={props.clipFrame ? [props.clipFrame] : []}
+            planImage={props.planImage}
+            axes={props.axes}
+            selectedAxisId={setup.axisEdit.selectedAxisId}
+          />
           {!toolActive && (<CanvasZoomControls onZoomIn={() => events.zoomAtPoint(size.w / 2, size.h / 2, 1.2)} onZoomOut={() => events.zoomAtPoint(size.w / 2, size.h / 2, 1 / 1.2)} onReset={reset} />)}
         </div>
       </div>
