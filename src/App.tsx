@@ -194,6 +194,8 @@ export default function App() {
       onAddNorthArrow={state.handleAddNorthArrow}
       onAddAxes={state.handleAddAxes}
       axes={state.axes}
+      onAddAxesFromWalls={state.handleAddAxesFromWalls}
+onDeleteAllAxes={state.handleDeleteAllAxes}
     />
   );
 
