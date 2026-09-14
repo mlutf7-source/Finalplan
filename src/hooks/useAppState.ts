@@ -145,33 +145,45 @@ const handleAddAxesFromWalls = useCallback(() => {
     const dx = Math.abs(wall.end.x - wall.start.x);
     const dy = Math.abs(wall.end.y - wall.start.y);
     const wallLength = Math.sqrt(dx * dx + dy * dy);
-    // ✅ طول المحور = طول الجدار + 3 متر (1.5 من كل اتجاه)
+    if (wallLength === 0) return;
+    // ✅ طول المحور = طول الجدار + 3 متر
     const axisLength = wallLength + 3;
+
+    // ✅ حساب الاتجاه والعمودي
+    const dirX = (wall.end.x - wall.start.x) / wallLength;
+    const dirY = (wall.end.y - wall.start.y) / wallLength;
+    const normalX = -dirY;
+    const normalY = dirX;
+    const sign = wall.normalSign ?? 1;
+    // ✅ إزاحة نصف السماكة (للانتقال من الحافة إلى المركز)
+    const halfThickness = (wall.thickness / 2) * sign;
+    const offsetX = normalX * halfThickness;
+    const offsetY = normalY * halfThickness;
+
+    // ✅ المركز الحقيقي للجدار
+    const centerX = (wall.start.x + wall.end.x) / 2 + offsetX;
+    const centerY = (wall.start.y + wall.end.y) / 2 + offsetY;
 
     if (dx > dy) {
       // جدار أفقي → محور أفقي
-      const centerY = (wall.start.y + wall.end.y) / 2;
-      const centerX = (wall.start.x + wall.end.x) / 2;
       newAxes.push({
         id: uuidv4(),
         type: 'horizontal',
         label: String(hIdx + 1),
-        position: centerY,
-        center: centerX,
+        position: centerY,       // إحداثي Y للمحور
+        center: centerX,          // مركز المحور على المحور X
         length: axisLength,
         offset: 0,
       });
       hIdx++;
     } else {
       // جدار رأسي → محور رأسي
-      const centerX = (wall.start.x + wall.end.x) / 2;
-      const centerY = (wall.start.y + wall.end.y) / 2;
       newAxes.push({
         id: uuidv4(),
         type: 'vertical',
         label: String.fromCharCode(65 + vIdx),
-        position: centerX,
-        center: centerY,
+        position: centerX,        // إحداثي X للمحور
+        center: centerY,          // مركز المحور على المحور Y
         length: axisLength,
         offset: 0,
       });
@@ -188,7 +200,6 @@ const handleAddAxesFromWalls = useCallback(() => {
   setAxes(prev => [...prev, ...newAxes]);
   alert(`تم إضافة ${newAxes.length} محور`);
 }, [walls, axes, commit]);
-
 // ✅ حذف جميع المحاور
 const handleDeleteAllAxes = useCallback(() => {
   if (axes.length === 0) {
