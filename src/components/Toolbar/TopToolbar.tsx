@@ -23,6 +23,8 @@ interface Props {
   onDimensionFontSizeChange: (size: number) => void;
   onAddNorthArrow: () => void;
   onAddAxes: (axes: Axis[]) => void;
+  onAddAxesFromWalls: () => void;
+  onDeleteAllAxes: () => void;
   axes: Axis[];
 }
 
@@ -45,7 +47,7 @@ export const TopToolbar: React.FC<Props> = ({
   historyLength, futureLength, onAddAllDimensions, onModeChange,
   layers, onToggleLayer, onToggleAllLayers, allUnlocked,
   dimensionFontSize, onDimensionFontSizeChange, onAddNorthArrow,
-  onAddAxes, axes,
+  onAddAxes, onAddAxesFromWalls, onDeleteAllAxes, axes,
 }) => {
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [showAxisDialog, setShowAxisDialog] = useState(false);
@@ -65,7 +67,7 @@ export const TopToolbar: React.FC<Props> = ({
     border: '1px solid #ccc',
     borderRadius: 8,
     padding: 6,
-    minWidth: 150,
+    minWidth: 170,
     boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
   };
 
@@ -96,23 +98,12 @@ export const TopToolbar: React.FC<Props> = ({
         zIndex: 500,
       }}
     >
-      {/* الصف الأول: DrawToolbar + فاصل مرن + تراجع/تقدم */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 6,
-          marginBottom: 6,
-          flexWrap: 'nowrap',
-          width: '100%',
-        }}
-      >
+      {/* الصف الأول */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, flexWrap: 'nowrap', width: '100%' }}>
         <div style={{ flex: '0 0 auto' }}>
           <DrawToolbar mode={mode} drawingType={drawingType} onStartDrawing={onStartDrawing} />
         </div>
-
         <div style={{ flex: '1 1 auto' }} />
-
         <button
           onClick={onUndo}
           disabled={historyLength === 0}
@@ -127,9 +118,7 @@ export const TopToolbar: React.FC<Props> = ({
             flex: '0 0 auto',
             borderRadius: 8,
           }}
-        >
-          ↩️
-        </button>
+        >↩️</button>
         <button
           onClick={onRedo}
           disabled={futureLength === 0}
@@ -144,12 +133,10 @@ export const TopToolbar: React.FC<Props> = ({
             flex: '0 0 auto',
             borderRadius: 8,
           }}
-        >
-          ↪️
-        </button>
+        >↪️</button>
       </div>
 
-      {/* الصف الثاني: الأزرار الرئيسية */}
+      {/* الصف الثاني */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'nowrap', width: '100%' }}>
         <div style={{ position: 'relative', flex: '1 1 0', minWidth: 0 }}>
           <button onClick={() => toggleMenu('elements')} style={{ ...btnStyle(false, { background: '#f0f8ff', border: '1px solid #c5d9ed' }), width: '100%' }}>➕ عناصر</button>
@@ -203,8 +190,16 @@ export const TopToolbar: React.FC<Props> = ({
           )}
         </div>
 
-        <div style={{ flex: '1 1 0', minWidth: 0 }}>
-          <button onClick={() => setShowAxisDialog(true)} style={{ ...btnStyle(false, { background: '#f0fff0', border: '1px solid #b8e0b8' }), width: '100%' }}>📐 المحاور</button>
+        {/* ✅ زر المحاور مع قائمة منسدلة */}
+        <div style={{ position: 'relative', flex: '1 1 0', minWidth: 0 }}>
+          <button onClick={() => toggleMenu('axes')} style={{ ...btnStyle(false, { background: '#f0fff0', border: '1px solid #b8e0b8' }), width: '100%' }}>📐 المحاور</button>
+          {openMenu === 'axes' && (
+            <div style={{ ...menuStyle, right: 0 }}>
+              <div onClick={() => { setShowAxisDialog(true); setOpenMenu(null); }} style={itemStyle}>📐 المحاور يدوي</div>
+              <div onClick={() => { onAddAxesFromWalls(); setOpenMenu(null); }} style={itemStyle}>🔄 المحاور تلقائي</div>
+              <div onClick={() => { onDeleteAllAxes(); setOpenMenu(null); }} style={itemStyle}>🗑️ حذف المحاور</div>
+            </div>
+          )}
         </div>
 
         <div style={{ flex: '1 1 0', minWidth: 0, position: 'relative' }}>
