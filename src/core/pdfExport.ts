@@ -29,18 +29,24 @@ export async function exportToPDF(
     return;
   }
 
-  // ✅ إطلاق حدثين: واحد لإخفاء الشبكة، وواحد لإعادة رسم المحاور
   window.dispatchEvent(new CustomEvent('pdf-export-grid', { detail: false }));
   window.dispatchEvent(new CustomEvent('pdf-export-forced-redraw'));
 
-  // ✅ انتظار 4 إطارات + 400ms لضمان إعادة رسم جميع الطبقات
+  // ✅ انتظار 3 إطارات + 300ms
   await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
   await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
   await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-  await new Promise<void>((resolve) => setTimeout(resolve, 400));
+  await new Promise<void>((resolve) => setTimeout(resolve, 300));
 
   try {
     const canvases = Array.from(stage.querySelectorAll('canvas'));
+
+    // ✅ تشخيص: طباعة معلومات كل canvas في وحدة التحكم
+    const canvasInfo = canvases.map((c, i) => {
+      const axesCount = c.getAttribute('data-axes-count') || 'n/a';
+      return `#${i}: ${c.width}x${c.height} axes=${axesCount}`;
+    }).join('\n');
+    console.log('--- Canvas Info ---\n' + canvasInfo);
 
     if (!canvases.length) {
       alert('تعذر العثور على عناصر الرسم');
@@ -107,14 +113,13 @@ export async function exportToPDF(
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, exportWidth, exportHeight);
 
-    // 4. دمج الطبقات — لكل canvas نستخدم أبعاده الفعلية
+    // 4. دمج الطبقات
     canvases.forEach((canvas, index) => {
       if (canvas.width <= 0 || canvas.height <= 0) {
         console.warn(`[PDF] Canvas #${index} skipped: zero size`);
         return;
       }
 
-      // ✅ استخدام أبعاد canvas نفسها لحساب موضع المصدر
       const canvasScaleX = canvas.width / stageWidth;
       const canvasScaleY = canvas.height / stageHeight;
 
