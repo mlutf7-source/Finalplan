@@ -13,6 +13,15 @@ interface Props {
 
 export const AxisLayer: React.FC<Props> = React.memo(({ axes, view, width, height, selectedId, scale = 1 }) => {
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
+  // ✅ عدّاد يزيد عند طلب إعادة الرسم القسري
+  const [redrawTick, setRedrawTick] = React.useState(0);
+
+  // ✅ الاستماع لحدث إعادة الرسم القسري
+  React.useEffect(() => {
+    const handler = () => setRedrawTick(t => t + 1);
+    window.addEventListener('pdf-export-forced-redraw', handler);
+    return () => window.removeEventListener('pdf-export-forced-redraw', handler);
+  }, []);
 
   React.useEffect(() => {
     const canvas = canvasRef.current;
@@ -20,13 +29,15 @@ export const AxisLayer: React.FC<Props> = React.memo(({ axes, view, width, heigh
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    // ✅ ضبط الأبعاد دائماً قبل الرسم
     canvas.width = width * scale;
     canvas.height = height * scale;
+
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.scale(scale, scale);
     ctx.clearRect(0, 0, width, height);
 
-    // ✅ نفس معادلة DimensionLayer بالضبط
-    // نصف قطر الفقاعة يتناسب مع الزوم مع حد أدنى (يمنع الاختفاء عند التصغير)
+    // نفس معادلة DimensionLayer
     const bubbleRadius = Math.max(6, 10 * view.zoom);
     const lineWidth = Math.max(0.5, 1.5 * view.zoom);
     const fontSize = Math.max(8, 11 * view.zoom);
@@ -50,7 +61,6 @@ export const AxisLayer: React.FC<Props> = React.memo(({ axes, view, width, heigh
       const p1 = worldToScreen(p1w.x, p1w.y, width, height, view.zoom, view.offsetX, view.offsetY);
       const p2 = worldToScreen(p2w.x, p2w.y, width, height, view.zoom, view.offsetX, view.offsetY);
 
-      // رسم الخط المتقطع
       ctx.strokeStyle = color;
       ctx.lineWidth = selected ? lineWidth * 1.5 : lineWidth;
       ctx.setLineDash([6 * Math.max(0.5, view.zoom), 4 * Math.max(0.5, view.zoom)]);
@@ -60,7 +70,6 @@ export const AxisLayer: React.FC<Props> = React.memo(({ axes, view, width, heigh
       ctx.stroke();
       ctx.setLineDash([]);
 
-      // رسم الفقاعات
       const drawBubble = (pos: { x: number; y: number }) => {
         const r = selected ? bubbleRadius * 1.15 : bubbleRadius;
         ctx.beginPath();
@@ -79,7 +88,8 @@ export const AxisLayer: React.FC<Props> = React.memo(({ axes, view, width, heigh
       drawBubble(p1);
       drawBubble(p2);
     });
-  }, [axes, view, width, height, selectedId, scale]);
+    // ✅ redrawTick في التبعيات لإجبار إعادة الرسم
+  }, [axes, view, width, height, selectedId, scale, redrawTick]);
 
   return (
     <canvas
