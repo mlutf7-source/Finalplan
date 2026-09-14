@@ -1,5 +1,5 @@
 import React from 'react';
-import type { Wall, Point, CanvasView, PlanImage } from '../../core/types';
+import type { Wall, Point, CanvasView, PlanImage, Axis } from '../../core/types';
 import { worldToScreen, distance, wallRectangle } from '../../core/geometry';
 
 interface Props {
@@ -12,13 +12,38 @@ interface Props {
   tempEnd: Point | null;
   scale?: number;
   planImage?: PlanImage | null;
+  axes?: Axis[];
+  selectedAxisId?: string | null;
 }
 
-const COLORS = { exterior: '#333', interior: '#333', selected: '#0a0', handle: '#06f', preview: '#06f', dimension: '#888', grid: '#e0e0e0', gridBorder: '#aaa' };
+const COLORS = {
+  exterior: '#333',
+  interior: '#333',
+  selected: '#0a0',
+  handle: '#06f',
+  preview: '#06f',
+  dimension: '#888',
+  grid: '#e0e0e0',
+  gridBorder: '#aaa',
+  axis: '#d00',
+  axisSelected: '#0a0',
+};
 const GRID_EXTENT = 20;
 const GRID_SPACING = 0.5;
 
-export const CanvasRenderer: React.FC<Props> = React.memo(({ walls, view, width, height, selectedId, tempStart, tempEnd, scale = 1, planImage = null }) => {
+export const CanvasRenderer: React.FC<Props> = React.memo(({
+  walls,
+  view,
+  width,
+  height,
+  selectedId,
+  tempStart,
+  tempEnd,
+  scale = 1,
+  planImage = null,
+  axes = [],
+  selectedAxisId = null,
+}) => {
   const [showGrid, setShowGrid] = React.useState(true);
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
 
@@ -54,6 +79,63 @@ export const CanvasRenderer: React.FC<Props> = React.memo(({ walls, view, width,
     }
   };
 
+  // ✅ رسم المحاور (مضافة جديدة - لا تؤثر على الميزات السابقة)
+  const drawAxes = (ctx: CanvasRenderingContext2D) => {
+    if (!axes || axes.length === 0) return;
+    const bubbleRadius = Math.max(6, 10 * view.zoom);
+    const lineWidth = Math.max(0.5, 1.5 * view.zoom);
+    const fontSize = Math.max(8, 11 * view.zoom);
+
+    axes.forEach(axis => {
+      const selected = axis.id === selectedAxisId;
+      const color = selected ? COLORS.axisSelected : COLORS.axis;
+
+      let p1w: Point;
+      let p2w: Point;
+      if (axis.type === 'vertical') {
+        const x = axis.position + axis.offset;
+        p1w = { x, y: axis.center - axis.length / 2 };
+        p2w = { x, y: axis.center + axis.length / 2 };
+      } else {
+        const y = axis.position - axis.offset;
+        p1w = { x: axis.center - axis.length / 2, y };
+        p2w = { x: axis.center + axis.length / 2, y };
+      }
+
+      const p1 = toScreen(p1w);
+      const p2 = toScreen(p2w);
+
+      // خط متقطع
+      ctx.strokeStyle = color;
+      ctx.lineWidth = selected ? lineWidth * 1.5 : lineWidth;
+      ctx.setLineDash([6 * Math.max(0.5, view.zoom), 4 * Math.max(0.5, view.zoom)]);
+      ctx.beginPath();
+      ctx.moveTo(p1.x, p1.y);
+      ctx.lineTo(p2.x, p2.y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // فقاعات
+      const drawBubble = (pos: Point) => {
+        const r = selected ? bubbleRadius * 1.15 : bubbleRadius;
+        ctx.beginPath();
+        ctx.arc(pos.x, pos.y, r, 0, Math.PI * 2);
+        ctx.fillStyle = '#fff';
+        ctx.fill();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = lineWidth;
+        ctx.stroke();
+        ctx.fillStyle = selected ? COLORS.axisSelected : '#000';
+        ctx.font = `bold ${fontSize}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(axis.label, pos.x, pos.y);
+      };
+      drawBubble(p1);
+      drawBubble(p2);
+    });
+  };
+
   const drawWall = (ctx: CanvasRenderingContext2D, wall: Wall, selected: boolean) => {
     const rect = wallRectangle(wall);
     const corners = rect.corners.map(toScreen);
@@ -85,13 +167,17 @@ export const CanvasRenderer: React.FC<Props> = React.memo(({ walls, view, width,
     if (!ctx) return;
     canvas.width = width * scale;
     canvas.height = height * scale;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.scale(scale, scale);
     ctx.clearRect(0, 0, width, height);
     ctx.fillStyle = '#fafafa';
     ctx.fillRect(0, 0, width, height);
     if (showGrid) drawGrid(ctx);
 
-    // رسم الصورة
+    // ✅ 1. رسم المحاور أولاً (خلف الجدران والصورة)
+    drawAxes(ctx);
+
+    // ✅ 2. رسم الصورة
     if (planImage && planImage.url) {
       const img = new Image();
       img.src = planImage.url;
@@ -101,8 +187,7 @@ export const CanvasRenderer: React.FC<Props> = React.memo(({ walls, view, width,
         const p1 = toScreen({ x: planImage.x, y: planImage.y });
         const p2 = toScreen({ x: planImage.x + planImage.width, y: planImage.y + planImage.height });
         ctx.drawImage(img, p1.x, p1.y, p2.x - p1.x, p2.y - p1.y);
-        
-        // إظهار إطار التحديد عند اختيار الصورة
+
         if (planImage.isSelected) {
           ctx.setLineDash([6, 4]);
           ctx.strokeStyle = '#00aaff';
@@ -114,7 +199,10 @@ export const CanvasRenderer: React.FC<Props> = React.memo(({ walls, view, width,
       };
     }
 
+    // ✅ 3. رسم الجدران
     walls.forEach(w => drawWall(ctx, w, w.id === selectedId));
+
+    // ✅ 4. رسم معاينة الجدار
     if (tempStart && tempEnd) {
       const s = toScreen(tempStart);
       const e = toScreen(tempEnd);
@@ -132,7 +220,7 @@ export const CanvasRenderer: React.FC<Props> = React.memo(({ walls, view, width,
       ctx.textAlign = 'center';
       ctx.fillText(distance(tempStart, tempEnd).toFixed(2), mid.x + 15, mid.y - 15);
     }
-  }, [walls, view, width, height, selectedId, tempStart, tempEnd, showGrid, scale, planImage]);
+  }, [walls, view, width, height, selectedId, tempStart, tempEnd, showGrid, scale, planImage, axes, selectedAxisId]);
 
   return <canvas ref={canvasRef} width={width} height={height} style={{ display: 'block' }} />;
 });
