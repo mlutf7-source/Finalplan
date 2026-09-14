@@ -31,7 +31,6 @@ export const CanvasLayers: React.FC<Props> = React.memo((props) => {
   const { walls, windows, doors, view, width, height, selectedWallId, tempStart, tempEnd, columns, texts, regions, stairs, northArrows, clipFrames, axes, selectedStairId, selectedElement, selectedTextId, selectedNorthArrowId, selectedClipFrameId, selectedAxisId, dimensions, dimensionFontSize, selectedDimId, scale = 1, planImage = null } = props;
   return (
     <>
-      {/* ✅ key ديناميكي يجبر AxisLayer على إعادة الرسم عند تغير الزوم أو عدد المحاور */}
       <AxisLayer
         key={`axis-layer-${view.zoom.toFixed(4)}-${axes.length}-${width}-${height}`}
         axes={axes}
