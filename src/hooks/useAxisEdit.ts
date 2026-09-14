@@ -4,6 +4,8 @@ import { distance } from '../core/geometry';
 
 export type AxisDragMode = 'move' | 'extendStart' | 'extendEnd' | null;
 
+const BUBBLE_SNAP = 0.4; // مسافة التقاط الفقاعات
+
 export function useAxisEdit(axes: Axis[], updateAxis: (id: string, patch: Partial<Axis>) => void) {
   const [selectedAxisId, setSelectedAxisId] = useState<string | null>(null);
   const dragModeRef = useRef<AxisDragMode>(null);
@@ -57,6 +59,27 @@ export function useAxisEdit(axes: Axis[], updateAxis: (id: string, patch: Partia
     dragStartAxisRef.current = null;
   }, []);
 
+  // ✅ دالة snap: تجد أقرب قيمة من محاور أخرى
+  const snapCoordinate = useCallback((value: number, excludeId: string, isY: boolean): number => {
+    let best = value;
+    let bestDist = BUBBLE_SNAP;
+    axes.forEach(other => {
+      if (other.id === excludeId) return;
+      const endpoints = getAxisEndpoints(other);
+      const candidates = isY
+        ? [endpoints.start.y, endpoints.end.y]
+        : [endpoints.start.x, endpoints.end.x];
+      candidates.forEach(c => {
+        const d = Math.abs(value - c);
+        if (d < bestDist) {
+          bestDist = d;
+          best = c;
+        }
+      });
+    });
+    return best;
+  }, [axes, getAxisEndpoints]);
+
   const moveDrag = useCallback((pt: Point) => {
     if (!selectedAxisId || !dragModeRef.current || !dragStartRef.current || !dragStartAxisRef.current) return;
     const axis = dragStartAxisRef.current;
@@ -64,27 +87,45 @@ export function useAxisEdit(axes: Axis[], updateAxis: (id: string, patch: Partia
     const dy = pt.y - dragStartRef.current.y;
 
     if (dragModeRef.current === 'move') {
-      if (axis.type === 'vertical') updateAxis(selectedAxisId, { center: axis.center + dy });
-      else updateAxis(selectedAxisId, { center: axis.center + dx });
+      if (axis.type === 'vertical') {
+        // ✅ snap على مسار Y لفقاعات المحاور الأخرى
+        const rawCenter = axis.center + dy;
+        const snappedCenter = snapCoordinate(rawCenter, selectedAxisId, true);
+        updateAxis(selectedAxisId, { center: snappedCenter });
+      } else {
+        const rawCenter = axis.center + dx;
+        const snappedCenter = snapCoordinate(rawCenter, selectedAxisId, false);
+        updateAxis(selectedAxisId, { center: snappedCenter });
+      }
     } else if (dragModeRef.current === 'extendStart' || dragModeRef.current === 'extendEnd') {
       const { start, end } = getAxisEndpoints(axis);
       let newStart = { ...start }; let newEnd = { ...end };
       if (axis.type === 'vertical') {
-        if (dragModeRef.current === 'extendStart') newStart = { x: start.x, y: pt.y };
-        else newEnd = { x: end.x, y: pt.y };
+        if (dragModeRef.current === 'extendStart') {
+          const snappedY = snapCoordinate(pt.y, selectedAxisId, true);
+          newStart = { x: start.x, y: snappedY };
+        } else {
+          const snappedY = snapCoordinate(pt.y, selectedAxisId, true);
+          newEnd = { x: end.x, y: snappedY };
+        }
         const newCenter = (newStart.y + newEnd.y) / 2;
         const newLength = Math.abs(newEnd.y - newStart.y);
         if (newLength > 0.5) updateAxis(selectedAxisId, { center: newCenter, length: newLength });
       } else {
-        if (dragModeRef.current === 'extendStart') newStart = { x: pt.x, y: start.y };
-        else newEnd = { x: pt.x, y: end.y };
+        if (dragModeRef.current === 'extendStart') {
+          const snappedX = snapCoordinate(pt.x, selectedAxisId, false);
+          newStart = { x: snappedX, y: start.y };
+        } else {
+          const snappedX = snapCoordinate(pt.x, selectedAxisId, false);
+          newEnd = { x: snappedX, y: end.y };
+        }
         const newCenter = (newStart.x + newEnd.x) / 2;
         const newLength = Math.abs(newEnd.x - newStart.x);
         if (newLength > 0.5) updateAxis(selectedAxisId, { center: newCenter, length: newLength });
       }
     }
     dragStartRef.current = pt;
-  }, [selectedAxisId, getAxisEndpoints, updateAxis]);
+  }, [selectedAxisId, getAxisEndpoints, updateAxis, snapCoordinate]);
 
   const endDrag = useCallback(() => {
     dragModeRef.current = null;
@@ -93,4 +134,4 @@ export function useAxisEdit(axes: Axis[], updateAxis: (id: string, patch: Partia
   }, []);
 
   return { selectedAxisId, hitTest, detectMode, select, deselect, moveDrag, endDrag, getAxisEndpoints };
-}
+                      }
