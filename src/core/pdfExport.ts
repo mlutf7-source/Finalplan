@@ -30,38 +30,19 @@ export async function exportToPDF(
   }
 
   window.dispatchEvent(new CustomEvent('pdf-export-grid', { detail: false }));
-  window.dispatchEvent(new CustomEvent('pdf-export-forced-redraw'));
 
-  // ✅ انتظار 3 إطارات + 300ms
   await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
   await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-  await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-  await new Promise<void>((resolve) => setTimeout(resolve, 300));
+  await new Promise<void>((resolve) => setTimeout(resolve, 200));
 
   try {
     const canvases = Array.from(stage.querySelectorAll('canvas'));
-
-    // ✅ تشخيص: طباعة معلومات كل canvas في وحدة التحكم
-    const canvasInfo = canvases.map((c, i) => {
-      const axesCount = c.getAttribute('data-axes-count') || 'n/a';
-      return `#${i}: ${c.width}x${c.height} axes=${axesCount}`;
-    }).join('\n');
-    alert('--- Canvas Info ---\n' + canvasInfo);
-
-    if (!canvases.length) {
-      alert('تعذر العثور على عناصر الرسم');
-      return;
-    }
+    if (!canvases.length) { alert('تعذر العثور على عناصر الرسم'); return; }
 
     const stageWidth = stage.clientWidth;
     const stageHeight = stage.clientHeight;
+    if (stageWidth <= 0 || stageHeight <= 0) { alert('تعذر تحديد مساحة الرسم'); return; }
 
-    if (stageWidth <= 0 || stageHeight <= 0) {
-      alert('تعذر تحديد مساحة الرسم');
-      return;
-    }
-
-    // 1. حدود الكليشة في الـ World
     const left = clipFrame.x - clipFrame.width / 2;
     const right = clipFrame.x + clipFrame.width / 2;
     const top = clipFrame.y - clipFrame.height / 2;
@@ -75,15 +56,6 @@ export async function exportToPDF(
     const frameRight = Math.max(topLeft.x, bottomRight.x);
     const frameBottom = Math.max(topLeft.y, bottomRight.y);
 
-    const frameWidth = frameRight - frameLeft;
-    const frameHeight = frameBottom - frameTop;
-
-    if (frameWidth <= 0 || frameHeight <= 0) {
-      alert('أبعاد الكليشة غير صالحة');
-      return;
-    }
-
-    // 2. منطقة القص
     const sourceLeft = Math.max(0, frameLeft);
     const sourceTop = Math.max(0, frameTop);
     const sourceRight = Math.min(stageWidth, frameRight);
@@ -91,12 +63,8 @@ export async function exportToPDF(
     const sourceWidth = sourceRight - sourceLeft;
     const sourceHeight = sourceBottom - sourceTop;
 
-    if (sourceWidth <= 0 || sourceHeight <= 0) {
-      alert('الكليشة خارج منطقة الرسم الحالية');
-      return;
-    }
+    if (sourceWidth <= 0 || sourceHeight <= 0) { alert('الكليشة خارج منطقة الرسم الحالية'); return; }
 
-    // 3. Canvas التصدير
     const exportWidth = Math.max(1, Math.round(sourceWidth * scale));
     const exportHeight = Math.max(1, Math.round(sourceHeight * scale));
 
@@ -105,57 +73,29 @@ export async function exportToPDF(
     exportCanvas.height = exportHeight;
 
     const ctx = exportCanvas.getContext('2d');
-    if (!ctx) {
-      alert('تعذر تجهيز المسقط للتصدير');
-      return;
-    }
+    if (!ctx) { alert('تعذر تجهيز المسقط للتصدير'); return; }
 
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, exportWidth, exportHeight);
 
-    // 4. دمج الطبقات
-    canvases.forEach((canvas, index) => {
-      if (canvas.width <= 0 || canvas.height <= 0) {
-        console.warn(`[PDF] Canvas #${index} skipped: zero size`);
-        return;
-      }
-
+    canvases.forEach((canvas) => {
+      if (canvas.width <= 0 || canvas.height <= 0) return;
       const canvasScaleX = canvas.width / stageWidth;
       const canvasScaleY = canvas.height / stageHeight;
-
       const sourceX = Math.round(sourceLeft * canvasScaleX);
       const sourceY = Math.round(sourceTop * canvasScaleY);
       const sourceCanvasWidth = Math.round(sourceWidth * canvasScaleX);
       const sourceCanvasHeight = Math.round(sourceHeight * canvasScaleY);
-
-      if (sourceCanvasWidth <= 0 || sourceCanvasHeight <= 0) {
-        console.warn(`[PDF] Canvas #${index} skipped: zero source area`);
-        return;
-      }
-
+      if (sourceCanvasWidth <= 0 || sourceCanvasHeight <= 0) return;
       try {
-        ctx.drawImage(
-          canvas,
-          sourceX,
-          sourceY,
-          sourceCanvasWidth,
-          sourceCanvasHeight,
-          0,
-          0,
-          exportWidth,
-          exportHeight
-        );
-      } catch (err) {
-        console.error(`[PDF] Canvas #${index} draw error:`, err);
-      }
+        ctx.drawImage(canvas, sourceX, sourceY, sourceCanvasWidth, sourceCanvasHeight, 0, 0, exportWidth, exportHeight);
+      } catch (err) { console.error('draw error', err); }
     });
 
-    // 5. تحديد حجم الصفحة من المحتوى
     const contentRatio = exportWidth / exportHeight;
     const targetLongestSide = 280;
     let contentWidthMM: number;
     let contentHeightMM: number;
-
     if (contentRatio >= 1) {
       contentWidthMM = targetLongestSide;
       contentHeightMM = targetLongestSide / contentRatio;
@@ -170,7 +110,6 @@ export async function exportToPDF(
     const pageWidth = contentWidthMM + marginX * 2;
     const pageHeight = contentHeightMM + marginY * 2;
 
-    // 6. إنشاء PDF
     const pdf = new jsPDF({
       orientation: pageWidth >= pageHeight ? 'landscape' : 'portrait',
       unit: 'mm',
@@ -178,34 +117,17 @@ export async function exportToPDF(
       compress: true,
     });
 
-    // 7. إضافة المسقط
     const imgData = exportCanvas.toDataURL('image/png');
     pdf.addImage(imgData, 'PNG', marginX, marginY, contentWidthMM, contentHeightMM, undefined, 'FAST');
 
     const fileName = 'المسقط_المعماري.pdf';
 
-    // 8. حفظ / مشاركة
     if (Capacitor.isNativePlatform()) {
       const pdfBlob = pdf.output('blob');
       const base64Data = await blobToBase64(pdfBlob);
-
-      await Filesystem.writeFile({
-        path: fileName,
-        data: base64Data,
-        directory: Directory.Cache,
-      });
-
-      const fileUri = await Filesystem.getUri({
-        path: fileName,
-        directory: Directory.Cache,
-      });
-
-      await Share.share({
-        title: 'المسقط المعماري',
-        text: 'المسقط المعماري',
-        url: fileUri.uri,
-        dialogTitle: 'مشاركة المسقط المعماري PDF',
-      });
+      await Filesystem.writeFile({ path: fileName, data: base64Data, directory: Directory.Cache });
+      const fileUri = await Filesystem.getUri({ path: fileName, directory: Directory.Cache });
+      await Share.share({ title: 'المسقط المعماري', text: 'المسقط المعماري', url: fileUri.uri, dialogTitle: 'مشاركة المسقط المعماري PDF' });
     } else {
       pdf.save(fileName);
     }
