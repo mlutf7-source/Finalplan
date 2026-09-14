@@ -46,7 +46,7 @@ export async function exportToPDF(
       const axesCount = c.getAttribute('data-axes-count') || 'n/a';
       return `#${i}: ${c.width}x${c.height} axes=${axesCount}`;
     }).join('\n');
-    console.log('--- Canvas Info ---\n' + canvasInfo);
+    alert('--- Canvas Info ---\n' + canvasInfo);
 
     if (!canvases.length) {
       alert('تعذر العثور على عناصر الرسم');
