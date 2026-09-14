@@ -29,12 +29,15 @@ export async function exportToPDF(
     return;
   }
 
+  // ✅ إطلاق حدثين: واحد لإخفاء الشبكة، وواحد لإعادة رسم المحاور
   window.dispatchEvent(new CustomEvent('pdf-export-grid', { detail: false }));
+  window.dispatchEvent(new CustomEvent('pdf-export-forced-redraw'));
 
-  // ✅ انتظار ثلاث إطارات لضمان إعادة رسم جميع الطبقات
+  // ✅ انتظار 4 إطارات + 400ms لضمان إعادة رسم جميع الطبقات
   await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
   await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-  await new Promise<void>((resolve) => setTimeout(resolve, 200));
+  await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+  await new Promise<void>((resolve) => setTimeout(resolve, 400));
 
   try {
     const canvases = Array.from(stage.querySelectorAll('canvas'));
@@ -104,11 +107,14 @@ export async function exportToPDF(
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, exportWidth, exportHeight);
 
-    // 4. ✅ دمج الطبقات — استخدام أبعاد كل canvas مباشرة
-    canvases.forEach((canvas) => {
-      if (canvas.width <= 0 || canvas.height <= 0) return;
+    // 4. دمج الطبقات — لكل canvas نستخدم أبعاده الفعلية
+    canvases.forEach((canvas, index) => {
+      if (canvas.width <= 0 || canvas.height <= 0) {
+        console.warn(`[PDF] Canvas #${index} skipped: zero size`);
+        return;
+      }
 
-      // حساب معامل التحويل بناءً على أبعاد canvas نفسه
+      // ✅ استخدام أبعاد canvas نفسها لحساب موضع المصدر
       const canvasScaleX = canvas.width / stageWidth;
       const canvasScaleY = canvas.height / stageHeight;
 
@@ -117,20 +123,26 @@ export async function exportToPDF(
       const sourceCanvasWidth = Math.round(sourceWidth * canvasScaleX);
       const sourceCanvasHeight = Math.round(sourceHeight * canvasScaleY);
 
-      if (sourceCanvasWidth <= 0 || sourceCanvasHeight <= 0) return;
+      if (sourceCanvasWidth <= 0 || sourceCanvasHeight <= 0) {
+        console.warn(`[PDF] Canvas #${index} skipped: zero source area`);
+        return;
+      }
 
-      // ✅ نسخ مباشر من canvas بنسبه الصحيحة
-      ctx.drawImage(
-        canvas,
-        sourceX,
-        sourceY,
-        sourceCanvasWidth,
-        sourceCanvasHeight,
-        0,
-        0,
-        exportWidth,
-        exportHeight
-      );
+      try {
+        ctx.drawImage(
+          canvas,
+          sourceX,
+          sourceY,
+          sourceCanvasWidth,
+          sourceCanvasHeight,
+          0,
+          0,
+          exportWidth,
+          exportHeight
+        );
+      } catch (err) {
+        console.error(`[PDF] Canvas #${index} draw error:`, err);
+      }
     });
 
     // 5. تحديد حجم الصفحة من المحتوى
@@ -202,4 +214,4 @@ export async function exportToPDF(
   } finally {
     window.dispatchEvent(new CustomEvent('pdf-export-grid', { detail: true }));
   }
-        }
+}
