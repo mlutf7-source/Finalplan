@@ -13,31 +13,28 @@ interface Props {
 
 export const AxisLayer: React.FC<Props> = React.memo(({ axes, view, width, height, selectedId, scale = 1 }) => {
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
-  // ✅ عدّاد يزيد عند طلب إعادة الرسم القسري
-  const [redrawTick, setRedrawTick] = React.useState(0);
 
-  // ✅ الاستماع لحدث إعادة الرسم القسري
-  React.useEffect(() => {
-    const handler = () => setRedrawTick(t => t + 1);
-    window.addEventListener('pdf-export-forced-redraw', handler);
-    return () => window.removeEventListener('pdf-export-forced-redraw', handler);
-  }, []);
-
-  React.useEffect(() => {
+  // ✅ useLayoutEffect يرسم بشكل متزامن قبل أن يلتقطه pdfExport
+  React.useLayoutEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // ✅ ضبط الأبعاد دائماً قبل الرسم
-    canvas.width = width * scale;
-    canvas.height = height * scale;
+    // ✅ ضبط الأبعاد
+    const targetWidth = Math.max(1, Math.round(width * scale));
+    const targetHeight = Math.max(1, Math.round(height * scale));
+
+    if (canvas.width !== targetWidth) canvas.width = targetWidth;
+    if (canvas.height !== targetHeight) canvas.height = targetHeight;
 
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.scale(scale, scale);
     ctx.clearRect(0, 0, width, height);
 
-    // نفس معادلة DimensionLayer
+    // ✅ بيانات تشخيصية: تخبرنا أن الـ canvas قد رُسم فعلاً
+    canvas.setAttribute('data-axes-count', String(axes.length));
+
     const bubbleRadius = Math.max(6, 10 * view.zoom);
     const lineWidth = Math.max(0.5, 1.5 * view.zoom);
     const fontSize = Math.max(8, 11 * view.zoom);
@@ -88,15 +85,20 @@ export const AxisLayer: React.FC<Props> = React.memo(({ axes, view, width, heigh
       drawBubble(p1);
       drawBubble(p2);
     });
-    // ✅ redrawTick في التبعيات لإجبار إعادة الرسم
-  }, [axes, view, width, height, selectedId, scale, redrawTick]);
+  }, [axes, view, width, height, selectedId, scale]);
 
   return (
     <canvas
       ref={canvasRef}
-      width={width * scale}
-      height={height * scale}
-      style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', display: 'block' }}
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        pointerEvents: 'none',
+        display: 'block',
+        width: width,
+        height: height,
+      }}
     />
   );
 });
