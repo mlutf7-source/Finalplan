@@ -14,7 +14,19 @@ const handleError = (msg: string) => alert(msg);
 export default function App() {
   const state = useAppState();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  // ✅ حالة إظهار/إخفاء الشبكة
+  const [showGrid, setShowGrid] = useState(true);
   const canvasRef = useRef<HTMLDivElement>(null);
+
+  // ✅ إخفاء الشبكة تلقائياً عند تصدير PDF، وإظهارها بعده
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<boolean>).detail;
+      setShowGrid(detail !== false);
+    };
+    window.addEventListener('pdf-export-grid', handler);
+    return () => window.removeEventListener('pdf-export-grid', handler);
+  }, []);
 
   const fitViewToWalls = () => {
     const extWalls = state.walls.filter(w => w.type === 'exterior');
@@ -169,6 +181,7 @@ export default function App() {
       selectedAxisId={null}
       onUpdateAxis={state.handleUpdateAxis}
       onDeleteAxis={state.handleDeleteAxis}
+      showGrid={showGrid}
     />
   );
 
@@ -195,7 +208,9 @@ export default function App() {
       onAddAxes={state.handleAddAxes}
       axes={state.axes}
       onAddAxesFromWalls={state.handleAddAxesFromWalls}
-onDeleteAllAxes={state.handleDeleteAllAxes}
+      onDeleteAllAxes={state.handleDeleteAllAxes}
+      showGrid={showGrid}
+      onToggleGrid={() => setShowGrid(prev => !prev)}
     />
   );
 
