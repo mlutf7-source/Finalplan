@@ -141,7 +141,7 @@ export const CanvasContainer: React.FC<Props> = (props) => {
             planImage={props.planImage}
             axes={props.axes}
             selectedAxisId={setup.axisEdit.selectedAxisId}
-          showGrid={props.showGri}
+          showGrid={props.showGrid}
           />
           {!toolActive && (<CanvasZoomControls onZoomIn={() => events.zoomAtPoint(size.w / 2, size.h / 2, 1.2)} onZoomOut={() => events.zoomAtPoint(size.w / 2, size.h / 2, 1 / 1.2)} onReset={reset} />)}
         </div>
