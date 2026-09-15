@@ -77,9 +77,9 @@ export const CanvasRenderer: React.FC<Props> = React.memo(({
   const drawAxes = (ctx: CanvasRenderingContext2D) => {
     if (!axes || axes.length === 0) return;
     // ✅ حجم ثابت على الشاشة (لا يتأثر بالزوم)
-const bubbleRadius = 10;
-const lineWidth = 1.2;
-const fontSize = 10;
+const bubbleRadius = 9;
+const lineWidth = 1;
+const fontSize = 9;
     axes.forEach(axis => {
       const selected = axis.id === selectedAxisId;
       const color = selected ? COLORS.axisSelected : COLORS.axis;
