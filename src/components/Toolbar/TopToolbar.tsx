@@ -26,6 +26,8 @@ interface Props {
   onAddAxesFromWalls: () => void;
   onDeleteAllAxes: () => void;
   axes: Axis[];
+  showGrid: boolean;
+  onToggleGrid: () => void;
 }
 
 const btnBase: React.CSSProperties = {
@@ -48,6 +50,7 @@ export const TopToolbar: React.FC<Props> = ({
   layers, onToggleLayer, onToggleAllLayers, allUnlocked,
   dimensionFontSize, onDimensionFontSizeChange, onAddNorthArrow,
   onAddAxes, onAddAxesFromWalls, onDeleteAllAxes, axes,
+  showGrid, onToggleGrid,
 }) => {
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [showAxisDialog, setShowAxisDialog] = useState(false);
@@ -175,6 +178,10 @@ export const TopToolbar: React.FC<Props> = ({
                 />
               </div>
               <div onClick={() => { onAddNorthArrow(); setOpenMenu(null); }} style={itemStyle}>🧭 سهم الشمال</div>
+              {/* ✅ زر إخفاء/إظهار الشبكة */}
+              <div onClick={() => { onToggleGrid(); setOpenMenu(null); }} style={itemStyle}>
+                {showGrid ? '🔲 إخفاء الشبكة' : '🔳 إظهار الشبكة'}
+              </div>
             </div>
           )}
         </div>
@@ -190,7 +197,6 @@ export const TopToolbar: React.FC<Props> = ({
           )}
         </div>
 
-        {/* ✅ زر المحاور مع قائمة منسدلة */}
         <div style={{ position: 'relative', flex: '1 1 0', minWidth: 0 }}>
           <button onClick={() => toggleMenu('axes')} style={{ ...btnStyle(false, { background: '#f0fff0', border: '1px solid #b8e0b8' }), width: '100%' }}>📐 المحاور</button>
           {openMenu === 'axes' && (
