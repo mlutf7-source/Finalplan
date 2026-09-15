@@ -9,8 +9,8 @@ interface SelectedElement { id: string; type: ElementType; }
 
 const HANDLE = 0.6;
 const SNAP = 0.3;
-// ✅ الحد الأدنى للحركة قبل تطبيق snap (يمنع قفز العناصر عند النقر)
-const MIN_MOVE_FOR_SNAP = 0.05;
+// ✅ رفع الحد الأدنى للحركة (15 سم) لمنع القفز عند النقر
+const MIN_MOVE_FOR_DRAG = 0.15;
 
 function getColumnCenter(col: Column): Point { return col.center || col.position; }
 function getWindowCenter(win: Window, wall: Wall): Point {
@@ -93,8 +93,9 @@ export function useElementEdit(
   const [selected, setSelected] = useState<SelectedElement | null>(null);
   const dragModeRef = useRef<DragMode>(null);
   const dragStartRef = useRef<Point | null>(null);
-  // ✅ مرجع لبدء الحركة الفعلية (يُستخدم لتحديد ما إذا كان المستخدم قد حرّك فعلاً)
   const dragStartOriginalRef = useRef<Point | null>(null);
+  // ✅ قفل الحركة: لا يتحرك العنصر حتى يتحرك الإصبع مسافة كافية
+  const dragActivatedRef = useRef<boolean>(false);
 
   const getRotateHandlePosition = useCallback((col: Column): Point => {
     const center = getColumnCenter(col);
@@ -179,8 +180,10 @@ export function useElementEdit(
   const select = useCallback((id: string, type: ElementType, pt: Point, mode: DragMode = 'move') => {
     setSelected({ id, type });
     dragStartRef.current = pt;
-    dragStartOriginalRef.current = pt;  // ✅ حفظ نقطة البداية الأصلية
+    dragStartOriginalRef.current = pt;
     dragModeRef.current = mode;
+    // ✅ إعادة تعيين قفل الحركة
+    dragActivatedRef.current = false;
   }, []);
 
   const deselect = useCallback(() => {
@@ -188,20 +191,30 @@ export function useElementEdit(
     dragModeRef.current = null;
     dragStartRef.current = null;
     dragStartOriginalRef.current = null;
+    dragActivatedRef.current = false;
   }, []);
 
   const moveDrag = useCallback((pt: Point) => {
     if (!selected || !dragModeRef.current || !dragStartRef.current || !dragStartOriginalRef.current) return;
-    const dx = pt.x - dragStartRef.current.x;
-    const dy = pt.y - dragStartRef.current.y;
 
-    // ✅ حساب المسافة الإجمالية من نقطة البداية الأصلية
+    // ✅ حساب المسافة الإجمالية من نقطة البداية
     const totalDx = pt.x - dragStartOriginalRef.current.x;
     const totalDy = pt.y - dragStartOriginalRef.current.y;
     const totalDistance = Math.hypot(totalDx, totalDy);
-    // ✅ تفعيل snap فقط بعد حركة كافية (5 سم)
-    const shouldSnap = totalDistance > MIN_MOVE_FOR_SNAP;
 
+    // ✅ إذا لم يتحرك الإصبع مسافة كافية، لا تفعل شيئاً
+    if (!dragActivatedRef.current) {
+      if (totalDistance < MIN_MOVE_FOR_DRAG) {
+        return;
+      }
+      // ✅ تفعيل الحركة بمجرد تجاوز الحد
+      dragActivatedRef.current = true;
+      dragStartRef.current = pt;
+      return;
+    }
+
+    const dx = pt.x - dragStartRef.current.x;
+    const dy = pt.y - dragStartRef.current.y;
     dragStartRef.current = pt;
 
     if (selected.type === 'column') {
@@ -210,23 +223,17 @@ export function useElementEdit(
       if (dragModeRef.current === 'move') {
         const center = getColumnCenter(col);
         const rawPos = { x: center.x + dx, y: center.y + dy };
+        const movedCorners = getColumnCorners({ ...col, position: rawPos, center: rawPos });
+        const snap = snapCornersToWalls(movedCorners);
 
-        let finalX = rawPos.x;
-        let finalY = rawPos.y;
+        let finalX = rawPos.x + snap.offsetX;
+        let finalY = rawPos.y + snap.offsetY;
 
-        // ✅ تطبيق snap فقط بعد حركة كافية
-        if (shouldSnap) {
-          const movedCorners = getColumnCorners({ ...col, position: rawPos, center: rawPos });
-          const snap = snapCornersToWalls(movedCorners);
-          finalX = rawPos.x + snap.offsetX;
-          finalY = rawPos.y + snap.offsetY;
-
-          if (snap.offsetX === 0 && snap.offsetY === 0 && axes.length > 0) {
-            const vAxis = axes.find(a => a.type === 'vertical' && Math.abs(rawPos.x - (a.position + a.offset)) < 0.5);
-            if (vAxis) finalX = vAxis.position + vAxis.offset;
-            const hAxis = axes.find(a => a.type === 'horizontal' && Math.abs(rawPos.y - (a.position - a.offset)) < 0.5);
-            if (hAxis) finalY = hAxis.position - hAxis.offset;
-          }
+        if (snap.offsetX === 0 && snap.offsetY === 0 && axes.length > 0) {
+          const vAxis = axes.find(a => a.type === 'vertical' && Math.abs(rawPos.x - (a.position + a.offset)) < 0.5);
+          if (vAxis) finalX = vAxis.position + vAxis.offset;
+          const hAxis = axes.find(a => a.type === 'horizontal' && Math.abs(rawPos.y - (a.position - a.offset)) < 0.5);
+          if (hAxis) finalY = hAxis.position - hAxis.offset;
         }
 
         updateColumn(selected.id, { position: { x: finalX, y: finalY }, center: { x: finalX, y: finalY } });
@@ -243,17 +250,11 @@ export function useElementEdit(
       if (!wall) return;
       const center = getWindowCenter(win, wall);
       const rawCenter = { x: center.x + dx, y: center.y + dy };
-
-      let finalCenter = rawCenter;
-      // ✅ تطبيق snap فقط بعد حركة كافية
-      if (shouldSnap) {
-        const tempWin = { ...win, center: rawCenter };
-        const corners = getWindowDoorCorners(tempWin, wall);
-        const snap = snapCornersToWalls(corners);
-        finalCenter = { x: rawCenter.x + snap.offsetX, y: rawCenter.y + snap.offsetY };
-      }
-
-      updateWindow(selected.id, { center: finalCenter });
+      const tempWin = { ...win, center: rawCenter };
+      const corners = getWindowDoorCorners(tempWin, wall);
+      const snap = snapCornersToWalls(corners);
+      const snappedCenter = { x: rawCenter.x + snap.offsetX, y: rawCenter.y + snap.offsetY };
+      updateWindow(selected.id, { center: snappedCenter });
     } else if (selected.type === 'door') {
       const door = doors.find(d => d.id === selected.id);
       if (!door) return;
@@ -273,17 +274,11 @@ export function useElementEdit(
       }
       const center = getDoorCenter(door, wall);
       const rawCenter = { x: center.x + dx, y: center.y + dy };
-
-      let finalCenter = rawCenter;
-      // ✅ تطبيق snap فقط بعد حركة كافية
-      if (shouldSnap) {
-        const tempDoor = { ...door, center: rawCenter };
-        const corners = getWindowDoorCorners(tempDoor, wall);
-        const snap = snapCornersToWalls(corners);
-        finalCenter = { x: rawCenter.x + snap.offsetX, y: rawCenter.y + snap.offsetY };
-      }
-
-      updateDoor(selected.id, { center: finalCenter });
+      const tempDoor = { ...door, center: rawCenter };
+      const corners = getWindowDoorCorners(tempDoor, wall);
+      const snap = snapCornersToWalls(corners);
+      const snappedCenter = { x: rawCenter.x + snap.offsetX, y: rawCenter.y + snap.offsetY };
+      updateDoor(selected.id, { center: snappedCenter });
     }
   }, [selected, columns, windows, doors, walls, updateColumn, updateWindow, updateDoor, snapCornersToWalls, axes]);
 
@@ -291,7 +286,8 @@ export function useElementEdit(
     dragModeRef.current = null;
     dragStartRef.current = null;
     dragStartOriginalRef.current = null;
+    dragActivatedRef.current = false;
   }, []);
 
   return { selected, hitTest, detectMode, select, deselect, moveDrag, endDrag };
-    }
+                          }
