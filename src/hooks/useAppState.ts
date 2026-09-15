@@ -18,26 +18,36 @@ function generateDimensionsForAxes(axes: Axis[]): Dimension[] {
   const dims: Dimension[] = [];
   const vAxes = axes.filter(a => a.type === 'vertical').sort((a, b) => (a.position + a.offset) - (b.position + b.offset));
   const hAxes = axes.filter(a => a.type === 'horizontal').sort((a, b) => (a.position - a.offset) - (b.position - b.offset));
-
-  // ✅ أبعاد رأسية: توضع فوق الفقاعات (نحو الداخل بـ 0.5م)
   for (let i = 0; i < vAxes.length - 1; i++) {
     const x1 = vAxes[i].position + vAxes[i].offset;
     const x2 = vAxes[i + 1].position + vAxes[i + 1].offset;
     const yTop = vAxes[i].center - vAxes[i].length / 2 - 0.5;
     dims.push({ id: uuidv4(), start: { x: x1, y: yTop }, end: { x: x2, y: yTop }, offset: 0 });
   }
-
-  // ✅ أبعاد أفقية: توضع يمين الفقاعات (نحو الداخل بـ 0.5م)
   for (let i = 0; i < hAxes.length - 1; i++) {
     const y1 = hAxes[i].position - hAxes[i].offset;
     const y2 = hAxes[i + 1].position - hAxes[i + 1].offset;
     const xLeft = hAxes[i].center + hAxes[i].length / 2 + 0.5;
     dims.push({ id: uuidv4(), start: { x: xLeft, y: y1 }, end: { x: xLeft, y: y2 }, offset: 0 });
   }
-
   return dims;
 }
 function findNearestWall(walls: Wall[], pt: Point): { wall: Wall; point: Point; distance: number } | null { let nearest: { wall: Wall; point: Point; distance: number } | null = null; for (const wall of walls) { const point = closestPointOnSegment(pt, wall.start, wall.end); const d = distance(pt, point); if (!nearest || d < nearest.distance) nearest = { wall, point, distance: d }; } return nearest; }
+
+// ✅ دالة مركزية لإعادة ترتيب وتسمية المحاور حسب الموضع الفعلي
+function reorderAxes(axesList: Axis[]): Axis[] {
+  const vAxes = axesList
+    .filter(a => a.type === 'vertical')
+    .sort((a, b) => (a.position + a.offset) - (b.position + b.offset));
+  const hAxes = axesList
+    .filter(a => a.type === 'horizontal')
+    .sort((a, b) => (a.position - a.offset) - (b.position - b.offset));
+  return [
+    ...vAxes.map((a, i) => ({ ...a, label: String.fromCharCode(65 + i) })),
+    ...hAxes.map((a, i) => ({ ...a, label: String(i + 1) })),
+  ];
+}
+
 export function useAppState() {
 const [walls, setWalls] = useState<Wall[]>([]);
 const [mode, setMode] = useState<AppMode>('view');
@@ -70,7 +80,6 @@ const handleAddAllDimensions = useCallback(() => {
   commit();
   setDimensions(prev => [...prev, ...wallDims, ...axisDims]);
 }, [walls, axes, commit]);
-// ✅ تعديل 1: التقاط العمود على المحور
 const handlePlaceColumn = useCallback((pt: Point) => {
   commit();
   let snapped = { ...pt };
@@ -80,7 +89,6 @@ const handlePlaceColumn = useCallback((pt: Point) => {
   if (hAxis) snapped.y = hAxis.position - hAxis.offset;
   elements.addColumn({ position: snapped, width: DEFAULT_COLUMN.width, length: DEFAULT_COLUMN.length });
 }, [elements, commit, axes]);
-
 const handlePlaceWindow = useCallback((pt: Point) => { const nearest = findNearestWall(walls, pt); if (!nearest) return; const bestWall = nearest.wall; const len = distance(bestWall.start, bestWall.end); if (len <= 0) return; const pos = distance(bestWall.start, nearest.point); const center = { x: bestWall.start.x + ((pos + DEFAULT_WINDOW.width / 2) / len) * (bestWall.end.x - bestWall.start.x), y: bestWall.start.y + ((pos + DEFAULT_WINDOW.width / 2) / len) * (bestWall.end.y - bestWall.start.y) }; commit(); elements.addWindow({ wallId: bestWall.id, position: pos, width: DEFAULT_WINDOW.width, height: DEFAULT_WINDOW.height, center }); }, [walls, elements, commit]);
 const handlePlaceDoor = useCallback((pt: Point) => {
   const nearest = findNearestWall(walls, pt);
@@ -93,7 +101,6 @@ const handlePlaceDoor = useCallback((pt: Point) => {
     x: bestWall.start.x + ((pos + DEFAULT_DOOR.width / 2) / len) * (bestWall.end.x - bestWall.start.x),
     y: bestWall.start.y + ((pos + DEFAULT_DOOR.width / 2) / len) * (bestWall.end.y - bestWall.start.y)
   };
-  // ✅ اتجاه الباب = اتجاه الجدار
   const wallAngle = Math.atan2(bestWall.end.y - bestWall.start.y, bestWall.end.x - bestWall.start.x);
   commit();
   elements.addDoor({
@@ -105,7 +112,7 @@ const handlePlaceDoor = useCallback((pt: Point) => {
     rotation: wallAngle,
   });
 }, [walls, elements, commit]);
-  const handlePlaceRegion = useCallback((pt: Point, type: RegionType) => { commit(); regionsManager.addRegion(pt, type); setMode('view'); }, [regionsManager, commit]);
+const handlePlaceRegion = useCallback((pt: Point, type: RegionType) => { commit(); regionsManager.addRegion(pt, type); setMode('view'); }, [regionsManager, commit]);
 const handleDeleteRegion = useCallback((id: string) => { commit(); regionsManager.removeRegion(id); }, [regionsManager, commit]);
 const handleAddText = useCallback((position: Point, text: string) => { commit(); textManager.addText(position, text); setMode('view'); }, [textManager, commit]);
 const handleUpdateText = useCallback((id: string, patch: Partial<TextElement>) => { commit(); textManager.updateText(id, patch); }, [textManager, commit]);
@@ -148,9 +155,8 @@ const handleNewProject = useCallback(() => { setWalls([]); setDimensions([]); el
 
 const [planImage, setPlanImage] = useState<PlanImage | null>(null);
 
-// ✅ تعديل 2: استبدال بدلاً من الإضافة (لمنع التكرار)
 const handleAddAxes = useCallback((newAxes: Axis[]) => { commit(); setAxes(newAxes); }, [commit]);
-  // ✅ إنشاء محاور تلقائياً من الجدران
+
 const handleAddAxesFromWalls = useCallback(() => {
   if (walls.length === 0) {
     alert('لا توجد جدران لإنشاء محاور منها');
@@ -158,54 +164,48 @@ const handleAddAxesFromWalls = useCallback(() => {
   }
 
   const newAxes: Axis[] = [];
-  const vAxes = axes.filter(a => a.type === 'vertical');
-  const hAxes = axes.filter(a => a.type === 'horizontal');
-  let vIdx = vAxes.length;
-  let hIdx = hAxes.length;
+  const existingVAxes = axes.filter(a => a.type === 'vertical');
+  const existingHAxes = axes.filter(a => a.type === 'horizontal');
+  let vIdx = existingVAxes.length;
+  let hIdx = existingHAxes.length;
 
   walls.forEach(wall => {
     const dx = Math.abs(wall.end.x - wall.start.x);
     const dy = Math.abs(wall.end.y - wall.start.y);
     const wallLength = Math.sqrt(dx * dx + dy * dy);
     if (wallLength === 0) return;
-    // ✅ طول المحور = طول الجدار + 3 متر
     const axisLength = wallLength + 4;
 
-    // ✅ حساب الاتجاه والعمودي
     const dirX = (wall.end.x - wall.start.x) / wallLength;
     const dirY = (wall.end.y - wall.start.y) / wallLength;
     const normalX = -dirY;
     const normalY = dirX;
     const sign = wall.normalSign ?? 1;
-    // ✅ إزاحة نصف السماكة (للانتقال من الحافة إلى المركز)
     const halfThickness = (wall.thickness / 2) * sign;
     const offsetX = normalX * halfThickness;
     const offsetY = normalY * halfThickness;
 
-    // ✅ المركز الحقيقي للجدار
     const centerX = (wall.start.x + wall.end.x) / 2 + offsetX;
     const centerY = (wall.start.y + wall.end.y) / 2 + offsetY;
 
     if (dx > dy) {
-      // جدار أفقي → محور أفقي
       newAxes.push({
         id: uuidv4(),
         type: 'horizontal',
         label: String(hIdx + 1),
-        position: centerY,       // إحداثي Y للمحور
-        center: centerX,          // مركز المحور على المحور X
+        position: centerY,
+        center: centerX,
         length: axisLength,
         offset: 0,
       });
       hIdx++;
     } else {
-      // جدار رأسي → محور رأسي
       newAxes.push({
         id: uuidv4(),
         type: 'vertical',
         label: String.fromCharCode(65 + vIdx),
-        position: centerX,        // إحداثي X للمحور
-        center: centerY,          // مركز المحور على المحور Y
+        position: centerX,
+        center: centerY,
         length: axisLength,
         offset: 0,
       });
@@ -219,10 +219,11 @@ const handleAddAxesFromWalls = useCallback(() => {
   }
 
   commit();
-  setAxes(prev => [...prev, ...newAxes]);
+  // ✅ إضافة المحاور الجديدة ثم إعادة الترتيب والتسمية تلقائياً
+  setAxes(prev => reorderAxes([...prev, ...newAxes]));
   alert(`تم إضافة ${newAxes.length} محور`);
 }, [walls, axes, commit]);
-// ✅ حذف جميع المحاور
+
 const handleDeleteAllAxes = useCallback(() => {
   if (axes.length === 0) {
     alert('لا توجد محاور لحذفها');
@@ -233,19 +234,24 @@ const handleDeleteAllAxes = useCallback(() => {
   commit();
   setAxes([]);
 }, [axes, commit]);
-const handleUpdateAxis = useCallback((id: string, patch: Partial<Axis>) => { commit(); setAxes(prev => prev.map(a => a.id === id ? { ...a, ...patch } : a)); }, [commit]);
+
+// ✅ عند التحديث، نعيد الترتيب تلقائياً
+const handleUpdateAxis = useCallback((id: string, patch: Partial<Axis>) => {
+  commit();
+  setAxes(prev => {
+    const updated = prev.map(a => a.id === id ? { ...a, ...patch } : a);
+    return reorderAxes(updated);
+  });
+}, [commit]);
+
+// ✅ عند الحذف، نعيد الترتيب تلقائياً
 const handleDeleteAxis = useCallback((id: string) => {
   commit();
   setAxes(prev => {
     const filtered = prev.filter(a => a.id !== id);
-    const vAxes = filtered.filter(a => a.type === 'vertical').sort((a, b) => (a.position + a.offset) - (b.position + b.offset));
-    const hAxes = filtered.filter(a => a.type === 'horizontal').sort((a, b) => (a.position - a.offset) - (b.position - b.offset));
-    return [
-      ...vAxes.map((a, i) => ({ ...a, label: String.fromCharCode(65 + i) })),
-      ...hAxes.map((a, i) => ({ ...a, label: String(i + 1) })),
-    ];
+    return reorderAxes(filtered);
   });
 }, [commit]);
-return { walls, setWalls, mode, setMode, drawingType, setDrawingType, dimensions, setDimensions, dimensionFontSize, setDimensionFontSize, layers, toggleLayer, toggleAllLayers, allUnlocked, setAllLayersLocked, showQuantities, setShowQuantities, activeTab, setActiveTab, elements, regionsManager, textManager, stairManager, results, history, future, handleUndo, handleRedo, handleWallsChange, handleDimensionsChange, handleAddDimension, handleAddAllDimensions, handlePlaceColumn, handlePlaceWindow, handlePlaceDoor, handlePlaceRegion, handleDeleteRegion, handleAddText, handleUpdateText, handleDeleteText, handleCopyText, handleUpdateColumn, handleUpdateWindow, handleUpdateDoor, handleDeleteColumn, handleDeleteWindow, handleDeleteDoor, handleAddStairAtPoint, handleUpdateStair, handleDeleteStair, handleAddNorthArrow, handleUpdateNorthArrow, handleCancelTool, toolsActive, projectManager, handleSaveProject, handleLoadProject, handleDeleteProject, handleNewProject, isDirty, currentProjectName, clipFrame, setClipFrame: handleSetClipFrame, view, setView, planImage, setPlanImage, axes, setAxes, handleAddAxes, handleUpdateAxis, handleDeleteAxis ,handleAddAxesFromWalls,
-handleDeleteAllAxes };
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      }
+
+return { walls, setWalls, mode, setMode, drawingType, setDrawingType, dimensions, setDimensions, dimensionFontSize, setDimensionFontSize, layers, toggleLayer, toggleAllLayers, allUnlocked, setAllLayersLocked, showQuantities, setShowQuantities, activeTab, setActiveTab, elements, regionsManager, textManager, stairManager, results, history, future, handleUndo, handleRedo, handleWallsChange, handleDimensionsChange, handleAddDimension, handleAddAllDimensions, handlePlaceColumn, handlePlaceWindow, handlePlaceDoor, handlePlaceRegion, handleDeleteRegion, handleAddText, handleUpdateText, handleDeleteText, handleCopyText, handleUpdateColumn, handleUpdateWindow, handleUpdateDoor, handleDeleteColumn, handleDeleteWindow, handleDeleteDoor, handleAddStairAtPoint, handleUpdateStair, handleDeleteStair, handleAddNorthArrow, handleUpdateNorthArrow, handleCancelTool, toolsActive, projectManager, handleSaveProject, handleLoadProject, handleDeleteProject, handleNewProject, isDirty, currentProjectName, clipFrame, setClipFrame: handleSetClipFrame, view, setView, planImage, setPlanImage, axes, setAxes, handleAddAxes, handleUpdateAxis, handleDeleteAxis, handleAddAxesFromWalls, handleDeleteAllAxes };
+}
