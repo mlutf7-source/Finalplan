@@ -14,6 +14,7 @@ interface Props {
   planImage?: PlanImage | null;
   axes?: Axis[];
   selectedAxisId?: string | null;
+  showGrid?: boolean;
 }
 
 const COLORS = {
@@ -43,15 +44,9 @@ export const CanvasRenderer: React.FC<Props> = React.memo(({
   planImage = null,
   axes = [],
   selectedAxisId = null,
+  showGrid = true,
 }) => {
-  const [showGrid, setShowGrid] = React.useState(true);
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
-
-  React.useEffect(() => {
-    const handler = (e: Event) => { setShowGrid((e as CustomEvent<boolean>).detail !== false); };
-    window.addEventListener('pdf-export-grid', handler);
-    return () => window.removeEventListener('pdf-export-grid', handler);
-  }, []);
 
   const toScreen = (p: Point): Point => worldToScreen(p.x, p.y, width, height, view.zoom, view.offsetX, view.offsetY);
 
@@ -79,14 +74,13 @@ export const CanvasRenderer: React.FC<Props> = React.memo(({
     }
   };
 
-  // ✅ رسم المحاور — حجم ثابت على الشاشة (لا يتأثر بالزوم)
   const drawAxes = (ctx: CanvasRenderingContext2D) => {
     if (!axes || axes.length === 0) return;
-// ✅ حجم يتناسب مع الزوم (نفس سلوك باقي العناصر)
-const zoomFactor = view.zoom;
-const bubbleRadius = Math.max(7, Math.min(13, 10 * zoomFactor));
-const lineWidth = Math.max(0.8, Math.min(2.2, 1.3 * zoomFactor));
-const fontSize = Math.max(8, Math.min(13, 10 * zoomFactor));
+    const zoomFactor = view.zoom;
+    const bubbleRadius = Math.max(7, Math.min(13, 10 * zoomFactor));
+    const lineWidth = Math.max(0.8, Math.min(2.2, 1.3 * zoomFactor));
+    const fontSize = Math.max(8, Math.min(13, 10 * zoomFactor));
+
     axes.forEach(axis => {
       const selected = axis.id === selectedAxisId;
       const color = selected ? COLORS.axisSelected : COLORS.axis;
@@ -106,7 +100,6 @@ const fontSize = Math.max(8, Math.min(13, 10 * zoomFactor));
       const p1 = toScreen(p1w);
       const p2 = toScreen(p2w);
 
-      // خط متقطع — طول الشرطات ثابت أيضاً
       ctx.strokeStyle = color;
       ctx.lineWidth = selected ? lineWidth * 1.5 : lineWidth;
       ctx.setLineDash([6, 4]);
@@ -116,7 +109,6 @@ const fontSize = Math.max(8, Math.min(13, 10 * zoomFactor));
       ctx.stroke();
       ctx.setLineDash([]);
 
-      // فقاعات — حجم ثابت
       const drawBubble = (pos: Point) => {
         const r = selected ? bubbleRadius * 1.15 : bubbleRadius;
         ctx.beginPath();
@@ -175,10 +167,8 @@ const fontSize = Math.max(8, Math.min(13, 10 * zoomFactor));
     ctx.fillRect(0, 0, width, height);
     if (showGrid) drawGrid(ctx);
 
-    // ✅ 1. رسم المحاور أولاً (خلف الجدران والصورة)
     drawAxes(ctx);
 
-    // ✅ 2. رسم الصورة
     if (planImage && planImage.url) {
       const img = new Image();
       img.src = planImage.url;
@@ -200,10 +190,8 @@ const fontSize = Math.max(8, Math.min(13, 10 * zoomFactor));
       };
     }
 
-    // ✅ 3. رسم الجدران
     walls.forEach(w => drawWall(ctx, w, w.id === selectedId));
 
-    // ✅ 4. رسم معاينة الجدار
     if (tempStart && tempEnd) {
       const s = toScreen(tempStart);
       const e = toScreen(tempEnd);
