@@ -82,8 +82,30 @@ const handlePlaceColumn = useCallback((pt: Point) => {
 }, [elements, commit, axes]);
 
 const handlePlaceWindow = useCallback((pt: Point) => { const nearest = findNearestWall(walls, pt); if (!nearest) return; const bestWall = nearest.wall; const len = distance(bestWall.start, bestWall.end); if (len <= 0) return; const pos = distance(bestWall.start, nearest.point); const center = { x: bestWall.start.x + ((pos + DEFAULT_WINDOW.width / 2) / len) * (bestWall.end.x - bestWall.start.x), y: bestWall.start.y + ((pos + DEFAULT_WINDOW.width / 2) / len) * (bestWall.end.y - bestWall.start.y) }; commit(); elements.addWindow({ wallId: bestWall.id, position: pos, width: DEFAULT_WINDOW.width, height: DEFAULT_WINDOW.height, center }); }, [walls, elements, commit]);
-const handlePlaceDoor = useCallback((pt: Point) => { const nearest = findNearestWall(walls, pt); if (!nearest) return; const bestWall = nearest.wall; const len = distance(bestWall.start, bestWall.end); if (len <= 0) return; const pos = distance(bestWall.start, nearest.point); const center = { x: bestWall.start.x + ((pos + DEFAULT_DOOR.width / 2) / len) * (bestWall.end.x - bestWall.start.x), y: bestWall.start.y + ((pos + DEFAULT_DOOR.width / 2) / len) * (bestWall.end.y - bestWall.start.y) }; commit(); elements.addDoor({ wallId: bestWall.id, position: pos, width: DEFAULT_DOOR.width, height: DEFAULT_DOOR.height, center }); }, [walls, elements, commit]);
-const handlePlaceRegion = useCallback((pt: Point, type: RegionType) => { commit(); regionsManager.addRegion(pt, type); setMode('view'); }, [regionsManager, commit]);
+const handlePlaceDoor = useCallback((pt: Point) => {
+  const nearest = findNearestWall(walls, pt);
+  if (!nearest) return;
+  const bestWall = nearest.wall;
+  const len = distance(bestWall.start, bestWall.end);
+  if (len <= 0) return;
+  const pos = distance(bestWall.start, nearest.point);
+  const center = {
+    x: bestWall.start.x + ((pos + DEFAULT_DOOR.width / 2) / len) * (bestWall.end.x - bestWall.start.x),
+    y: bestWall.start.y + ((pos + DEFAULT_DOOR.width / 2) / len) * (bestWall.end.y - bestWall.start.y)
+  };
+  // ✅ اتجاه الباب = اتجاه الجدار
+  const wallAngle = Math.atan2(bestWall.end.y - bestWall.start.y, bestWall.end.x - bestWall.start.x);
+  commit();
+  elements.addDoor({
+    wallId: bestWall.id,
+    position: pos,
+    width: DEFAULT_DOOR.width,
+    height: DEFAULT_DOOR.height,
+    center,
+    rotation: wallAngle,
+  });
+}, [walls, elements, commit]);
+  const handlePlaceRegion = useCallback((pt: Point, type: RegionType) => { commit(); regionsManager.addRegion(pt, type); setMode('view'); }, [regionsManager, commit]);
 const handleDeleteRegion = useCallback((id: string) => { commit(); regionsManager.removeRegion(id); }, [regionsManager, commit]);
 const handleAddText = useCallback((position: Point, text: string) => { commit(); textManager.addText(position, text); setMode('view'); }, [textManager, commit]);
 const handleUpdateText = useCallback((id: string, patch: Partial<TextElement>) => { commit(); textManager.updateText(id, patch); }, [textManager, commit]);
@@ -147,7 +169,7 @@ const handleAddAxesFromWalls = useCallback(() => {
     const wallLength = Math.sqrt(dx * dx + dy * dy);
     if (wallLength === 0) return;
     // ✅ طول المحور = طول الجدار + 3 متر
-    const axisLength = wallLength + 3;
+    const axisLength = wallLength + 4;
 
     // ✅ حساب الاتجاه والعمودي
     const dirX = (wall.end.x - wall.start.x) / wallLength;
