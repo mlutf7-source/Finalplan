@@ -79,12 +79,14 @@ export const CanvasRenderer: React.FC<Props> = React.memo(({
     }
   };
 
-  // ✅ رسم المحاور (مضافة جديدة - لا تؤثر على الميزات السابقة)
+  // ✅ رسم المحاور — حجم ثابت على الشاشة (لا يتأثر بالزوم)
   const drawAxes = (ctx: CanvasRenderingContext2D) => {
     if (!axes || axes.length === 0) return;
-    const bubbleRadius = Math.max(6, 10 * view.zoom);
-    const lineWidth = Math.max(0.5, 1.5 * view.zoom);
-    const fontSize = Math.max(8, 11 * view.zoom);
+
+    // حجم ثابت بالبكسل على الشاشة (مثل الأبعاد والأعمدة)
+    const bubbleRadius = 11;
+    const lineWidth = 1.5;
+    const fontSize = 11;
 
     axes.forEach(axis => {
       const selected = axis.id === selectedAxisId;
@@ -105,17 +107,17 @@ export const CanvasRenderer: React.FC<Props> = React.memo(({
       const p1 = toScreen(p1w);
       const p2 = toScreen(p2w);
 
-      // خط متقطع
+      // خط متقطع — طول الشرطات ثابت أيضاً
       ctx.strokeStyle = color;
       ctx.lineWidth = selected ? lineWidth * 1.5 : lineWidth;
-      ctx.setLineDash([6 * Math.max(0.5, view.zoom), 4 * Math.max(0.5, view.zoom)]);
+      ctx.setLineDash([6, 4]);
       ctx.beginPath();
       ctx.moveTo(p1.x, p1.y);
       ctx.lineTo(p2.x, p2.y);
       ctx.stroke();
       ctx.setLineDash([]);
 
-      // فقاعات
+      // فقاعات — حجم ثابت
       const drawBubble = (pos: Point) => {
         const r = selected ? bubbleRadius * 1.15 : bubbleRadius;
         ctx.beginPath();
@@ -222,5 +224,5 @@ export const CanvasRenderer: React.FC<Props> = React.memo(({
     }
   }, [walls, view, width, height, selectedId, tempStart, tempEnd, showGrid, scale, planImage, axes, selectedAxisId]);
 
-  return <canvas ref={canvasRef} width={width} height={height} style={{ display: 'block' }} />;
+  return <canvas ref={canvasRef} width={width * scale} height={height * scale} style={{ display: 'block' }} />;
 });
