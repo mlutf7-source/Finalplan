@@ -24,13 +24,13 @@ interface Props {
   axes: Axis[]; selectedStairId: string | null; selectedElement: { id: string; type: 'column' | 'window' | 'door' } | null;
   selectedTextId: string | null; selectedNorthArrowId: string | null; selectedClipFrameId: string | null; selectedAxisId: string | null;
   dimensions: Dimension[]; dimensionFontSize: number; selectedDimId: string | null; scale?: number; planImage?: PlanImage | null;
+  showGrid?: boolean;
 }
 
 export const CanvasLayers: React.FC<Props> = React.memo((props) => {
-  const { walls, windows, doors, view, width, height, selectedWallId, tempStart, tempEnd, columns, texts, regions, stairs, northArrows, clipFrames, axes, selectedStairId, selectedElement, selectedTextId, selectedNorthArrowId, selectedClipFrameId, selectedAxisId, dimensions, dimensionFontSize, selectedDimId, scale = 1, planImage = null } = props;
+  const { walls, windows, doors, view, width, height, selectedWallId, tempStart, tempEnd, columns, texts, regions, stairs, northArrows, clipFrames, axes, selectedStairId, selectedElement, selectedTextId, selectedNorthArrowId, selectedClipFrameId, selectedAxisId, dimensions, dimensionFontSize, selectedDimId, scale = 1, planImage = null, showGrid = true } = props;
   return (
     <>
-      {/* ✅ المحاور الآن داخل CanvasRenderer — لا حاجة لـ AxisLayer منفصل */}
       <CanvasRenderer
         walls={walls}
         view={view}
@@ -43,6 +43,7 @@ export const CanvasLayers: React.FC<Props> = React.memo((props) => {
         planImage={planImage}
         axes={axes}
         selectedAxisId={selectedAxisId}
+        showGrid={showGrid}
       />
       <ElementLayer columns={columns} windows={windows} doors={doors} walls={walls} view={view} width={width} height={height} scale={scale} />
       <ElementEditLayer selected={selectedElement} columns={columns} windows={windows} doors={doors} walls={walls} view={view} width={width} height={height} />
