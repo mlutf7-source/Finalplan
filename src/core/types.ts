@@ -34,9 +34,10 @@ export interface PlanImage {
   width: number;
   height: number;
   opacity: number;
+  rotation?: number;   // ✅ جديد
   locked?: boolean;
   isSelected?: boolean;
-  }
+}
 export interface Axis {
   id: string;
   type: 'vertical' | 'horizontal';
