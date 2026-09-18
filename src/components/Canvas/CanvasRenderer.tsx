@@ -167,27 +167,37 @@ const fontSize = 9;
     if (showGrid) drawGrid(ctx);
 
     drawAxes(ctx);
+if (planImage && planImage.url) {
+  const img = new Image();
+  img.src = planImage.url;
+  img.onload = () => {
+    ctx.save();
+    ctx.globalAlpha = planImage.opacity;
 
-    if (planImage && planImage.url) {
-      const img = new Image();
-      img.src = planImage.url;
-      img.onload = () => {
-        ctx.save();
-        ctx.globalAlpha = planImage.opacity;
-        const p1 = toScreen({ x: planImage.x, y: planImage.y });
-        const p2 = toScreen({ x: planImage.x + planImage.width, y: planImage.y + planImage.height });
-        ctx.drawImage(img, p1.x, p1.y, p2.x - p1.x, p2.y - p1.y);
+    const rotation = planImage.rotation || 0;
+    const centerX = planImage.x + planImage.width / 2;
+    const centerY = planImage.y + planImage.height / 2;
+    const centerScreen = toScreen({ x: centerX, y: centerY });
+    const p1 = toScreen({ x: planImage.x, y: planImage.y });
+    const p2 = toScreen({ x: planImage.x + planImage.width, y: planImage.y + planImage.height });
+    const drawWidth = p2.x - p1.x;
+    const drawHeight = p2.y - p1.y;
 
-        if (planImage.isSelected) {
-          ctx.setLineDash([6, 4]);
-          ctx.strokeStyle = '#00aaff';
-          ctx.lineWidth = 2 / scale;
-          ctx.strokeRect(p1.x, p1.y, p2.x - p1.x, p2.y - p1.y);
-          ctx.setLineDash([]);
-        }
-        ctx.restore();
-      };
+    // ✅ رسم بدوران حول مركز الصورة
+    ctx.translate(centerScreen.x, centerScreen.y);
+    ctx.rotate(rotation);
+    ctx.drawImage(img, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
+
+    if (planImage.isSelected) {
+      ctx.setLineDash([6, 4]);
+      ctx.strokeStyle = '#00aaff';
+      ctx.lineWidth = 2 / scale;
+      ctx.strokeRect(-drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
+      ctx.setLineDash([]);
     }
+    ctx.restore();
+  };
+}
 
     walls.forEach(w => drawWall(ctx, w, w.id === selectedId));
 
