@@ -1,10 +1,11 @@
-import type { Wall, Column, Window, Door } from './types';
+import type { Wall, Column, Window, Door, Stair } from './types';
 import type { RoomRegion } from './regionTypes';
 import { distance } from './geometry';
 
 export interface FinishesInput {
   floorHeight: number;
   hasMarble: boolean;
+  marbleQuantity?: number;
 }
 
 export interface OpeningGroup {
@@ -56,6 +57,9 @@ export interface FinishResults {
   tileBathroomWalls: number;
   tileCement: number;
   tileSand: number;
+  stairFloorArea: number;
+  landingTileArea: number;
+  stepTileCount: number;
   marbleArea: number;
   marbleConcrete: number;
   marbleCement: number;
@@ -69,8 +73,6 @@ export interface FinishResults {
   totalCement: number;
   totalSand: number;
   totalAggregate: number;
-
-  // ✅ القيم المصححة (جديدة)
   correctedPlasterWalls: number;
   correctedPlasterCeiling: number;
   correctedPlasterArea: number;
@@ -112,9 +114,10 @@ export function calculateFinishes(
   windows: Window[],
   doors: Door[],
   regions: RoomRegion[],
+  stairs: Stair[],
   input: FinishesInput,
 ): FinishResults {
-  const { floorHeight, hasMarble } = input;
+  const { floorHeight, hasMarble, marbleQuantity } = input;
 
   const extWalls = walls.filter(w => w.type === 'exterior');
   const intWalls = walls.filter(w => w.type === 'interior');
@@ -138,6 +141,17 @@ export function calculateFinishes(
   const bathroomArea = bathroomRegions.reduce((s, r) => s + r.area, 0);
   const kitchenWallArea = kitchenRegions.reduce((s, r) => s + polygonPerimeter(r.polygon) * floorHeight, 0);
   const bathroomWallArea = bathroomRegions.reduce((s, r) => s + polygonPerimeter(r.polygon) * floorHeight, 0);
+
+  let stairFloorArea = 0;
+  let landingTileArea = 0;
+  let stepTileCount = 0;
+  stairs.forEach(stair => {
+    stairFloorArea += stair.width * stair.totalLength;
+    landingTileArea += stair.width * stair.landingLength;
+    const stepLength = Math.max(0, stair.totalLength - stair.landingLength);
+    const steps = stair.treadDepth > 0 ? Math.floor(stepLength / stair.treadDepth) : 0;
+    stepTileCount += steps;
+  });
 
   let outerColumnArea = 0;
   let innerColumnArea = 0;
@@ -206,8 +220,8 @@ export function calculateFinishes(
   const exteriorWallNet = Math.max(0, exteriorWallGross - outerColumnArea - extWindowArea - extDoorArea);
   const interiorWallNet = Math.max(0, interiorWallGross - innerColumnArea - intWindowArea - intDoorArea);
 
-  const exteriorBlocks = Math.ceil(exteriorWallNet * 12.5);
-  const interiorBlocks = Math.ceil(interiorWallNet * 12.5);
+  const exteriorBlocks = Math.ceil(exteriorWallNet * 12);
+  const interiorBlocks = Math.ceil(interiorWallNet * 12);
   const exteriorBlockCement = Math.ceil(exteriorBlocks / 50);
   const interiorBlockCement = Math.ceil(interiorBlocks / 50);
   const exteriorBlockSand = exteriorBlockCement * 0.15;
@@ -228,7 +242,7 @@ export function calculateFinishes(
   const primer = paintTotal / 8;
   const paint = paintTotal / 8;
 
-  const tileFloorArea = Math.max(0, floorArea - kitchenArea - bathroomArea);
+  const tileFloorArea = Math.max(0, floorArea - kitchenArea - bathroomArea - stairFloorArea);
   const tileKitchenFloor = kitchenArea;
   const tileBathroomFloor = bathroomArea;
   const tileKitchenWalls = kitchenWallArea;
@@ -237,7 +251,11 @@ export function calculateFinishes(
   const tileCement = tileTotalArea * 0.3;
   const tileSand = tileCement * 0.15;
 
-  const marbleArea = hasMarble ? Math.max(0, exteriorWallGross - extWindowArea - extDoorArea) : 0;
+  const marbleArea = hasMarble
+    ? (marbleQuantity !== undefined && marbleQuantity > 0
+        ? marbleQuantity
+        : Math.max(0, exteriorWallGross - extWindowArea - extDoorArea))
+    : 0;
   const marbleConcrete = marbleArea * 0.04;
   const marbleCement = marbleArea * 0.3;
   const marbleSand = marbleCement * 0.07;
@@ -345,6 +363,9 @@ export function calculateFinishes(
     tileBathroomWalls,
     tileCement,
     tileSand,
+    stairFloorArea,
+    landingTileArea,
+    stepTileCount,
     marbleArea,
     marbleConcrete,
     marbleCement,
@@ -373,4 +394,4 @@ export function calculateFinishes(
     correctedTileCement,
     correctedTileSand,
   };
-  }
+    }
