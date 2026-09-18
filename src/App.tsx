@@ -14,8 +14,8 @@ const handleError = (msg: string) => alert(msg);
 export default function App() {
   const state = useAppState();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  // ✅ حالة إظهار/إخفاء الشبكة
   const [showGrid, setShowGrid] = useState(true);
+  const [exitPromptVisible, setExitPromptVisible] = useState(false);
   const canvasRef = useRef<HTMLDivElement>(null);
 
   // ✅ إخفاء الشبكة تلقائياً عند تصدير PDF، وإظهارها بعده
@@ -41,24 +41,21 @@ export default function App() {
     state.setView({ zoom: Math.max(0.35, Math.min(zoom, 1)), offsetX: -(minX + maxX) / 2, offsetY: -(minY + maxY) / 2 });
   };
 
-  useEffect(() => {
-    const handleBackButton = async () => {
-      if (isSidebarOpen) { setIsSidebarOpen(false); return; }
-      if (state.isDirty) { const shouldExit = confirm('لديك تغييرات غير محفوظة. هل تريد الخروج من التطبيق؟'); if (shouldExit) await CapApp.exitApp(); } else { await CapApp.exitApp(); }
-    };
-    CapApp.addListener('backButton', handleBackButton);
-    return () => { CapApp.removeAllListeners(); };
-  }, [isSidebarOpen, state.isDirty]);
-
   const askName = (title: string, initial: string) => window.prompt(title, initial);
 
-  const save = async () => {
-    const name = askName('أدخل اسم المشروع:', state.currentProjectName || 'مسودة غير محفوظة');
-    if (!name?.trim()) return;
+  // ✅ حفظ المشروع (نفس الاسم = تحديث، اسم جديد = إنشاء جديد)
+  const save = async (): Promise<boolean> => {
+    const currentName = state.currentProjectName || '';
+    const name = askName('أدخل اسم المشروع:', currentName || 'مسودة غير محفوظة');
+    if (!name?.trim()) return false;
     const projectName = name.trim();
-    const isSameName = projectName === state.currentProjectName;
-    if (isSameName) { state.handleSaveProject(projectName); }
-    else { state.handleNewProject(); state.handleSaveProject(projectName); }
+
+    // ✅ handleSaveProject في projectManager يتعامل مع:
+    // - نفس الاسم → تحديث المشروع الموجود
+    // - اسم جديد → إنشاء مشروع جديد مع الإبقاء على المشروع الأصلي
+    state.handleSaveProject(projectName);
+
+    // ✅ تصدير ملف JSON (للمشاركة / النسخ الاحتياطي)
     const projectData = {
       name: projectName,
       walls: state.walls,
@@ -78,8 +75,52 @@ export default function App() {
     try {
       const result = await Filesystem.writeFile({ path: fileName, data: jsonString, directory: Directory.Cache, encoding: Encoding.UTF8 });
       await Share.share({ title: 'مشروع Finalplan', text: 'تم حفظ المشروع ومشاركته', url: result.uri, dialogTitle: 'حفظ أو مشاركة المشروع' });
-      alert('تم الحفظ بنجاح!');
-    } catch (e) { alert('فشل تجهيز الملف، حاول مرة أخرى.'); }
+      return true;
+    } catch (e) {
+      alert('فشل تجهيز الملف، حاول مرة أخرى.');
+      return false;
+    }
+  };
+
+  // ✅ حفظ عادي (من الشريط الجانبي)
+  const handleSaveClick = async () => {
+    const saved = await save();
+    if (saved) alert('تم الحفظ بنجاح!');
+    setIsSidebarOpen(false);
+  };
+
+  // ✅ زر الرجوع: إذا كان هناك تعديلات → نافذة تحذير مخصصة
+  useEffect(() => {
+    const handleBackButton = async () => {
+      if (isSidebarOpen) { setIsSidebarOpen(false); return; }
+      if (state.isDirty) {
+        setExitPromptVisible(true);
+      } else {
+        await CapApp.exitApp();
+      }
+    };
+    CapApp.addListener('backButton', handleBackButton);
+    return () => { CapApp.removeAllListeners(); };
+  }, [isSidebarOpen, state.isDirty]);
+
+  // ✅ زر: حفظ وخروج
+  const handleExitWithSave = async () => {
+    setExitPromptVisible(false);
+    const saved = await save();
+    if (saved) {
+      setTimeout(async () => { await CapApp.exitApp(); }, 400);
+    }
+  };
+
+  // ✅ زر: خروج بدون حفظ
+  const handleExitWithoutSave = async () => {
+    setExitPromptVisible(false);
+    await CapApp.exitApp();
+  };
+
+  // ✅ زر: إلغاء الخروج
+  const handleCancelExit = () => {
+    setExitPromptVisible(false);
   };
 
   const load = (id: string) => { if (state.isDirty && !confirm('حفظ قبل التحميل؟')) return; if (state.isDirty) { const name = askName('أدخل اسم المشروع لحفظ التعديلات:', state.currentProjectName); if (name?.trim()) state.handleSaveProject(name.trim()); } state.handleLoadProject(id); state.setAllLayersLocked(true); setIsSidebarOpen(false); setTimeout(() => fitViewToWalls(), 150); };
@@ -92,20 +133,68 @@ export default function App() {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onloadend = () => { state.setPlanImage({ id: 'image-1', url: reader.result as string, x: 0, y: 0, width: 10, height: 10, opacity: 0.5, locked: false, isSelected: false }); };
+    reader.onloadend = () => { state.setPlanImage({ id: 'image-1', url: reader.result as string, x: 0, y: 0, width: 10, height: 10, opacity: 0.5, locked: false, isSelected: false, rotation: 0 }); };
     reader.readAsDataURL(file);
   };
 
+  // ✅ ضبط مقياس الصورة (تعديل الصورة فقط، بدون تعديل الجدران)
   const handleScaleImage = () => {
-    if (!state.planImage) return alert('لا توجد صورة!');
+    if (!state.planImage) return alert('لا توجد صورة مستوردة!');
     if (state.walls.length === 0) return alert('ارسم جداراً فوق الجدار الموجود في الصورة أولاً!');
+
     const drawnWall = state.walls[state.walls.length - 1];
-    const drawnLength = Math.hypot(drawnWall.end.x - drawnWall.start.x, drawnWall.end.y - drawnWall.start.y);
-    const realLength = parseFloat(prompt('أدخل الطول الحقيقي للجدار بالمتر:', '3') || '');
-    if (isNaN(realLength) || realLength <= 0) return;
-    const calibrationFactor = realLength / drawnLength;
-    state.setPlanImage({ ...state.planImage, width: state.planImage.width * calibrationFactor, height: state.planImage.height * calibrationFactor });
-    alert('تم ضبط مقياس الرسم بنجاح!');
+    const drawnLengthAuto = Math.hypot(drawnWall.end.x - drawnWall.start.x, drawnWall.end.y - drawnWall.start.y);
+
+    if (drawnLengthAuto <= 0.01) {
+      return alert('الجدار المرسوم قصير جداً. ارسم جداراً أطول فوق الجدار الموجود على الصورة.');
+    }
+
+    // ✅ الحقل 1: طول الجدار المرسوم
+    const drawnLengthStr = prompt(
+      '1. أدخل طول الجدار المرسوم على الشاشة (متر):\n(القيمة الحالية: ' + drawnLengthAuto.toFixed(2) + ')',
+      drawnLengthAuto.toFixed(2)
+    );
+    if (drawnLengthStr === null) return;
+    const drawnValue = parseFloat(drawnLengthStr.replace(',', '.'));
+    if (isNaN(drawnValue) || drawnValue <= 0) return alert('قيمة طول الجدار المرسوم غير صالحة');
+
+    // ✅ الحقل 2: الطول الحقيقي على الصورة
+    const imageLengthStr = prompt(
+      '2. أدخل الطول الحقيقي للجدار على الصورة (متر):',
+      '3'
+    );
+    if (imageLengthStr === null) return;
+    const imageValue = parseFloat(imageLengthStr.replace(',', '.'));
+    if (isNaN(imageValue) || imageValue <= 0) return alert('قيمة الطول الحقيقي غير صالحة');
+
+    // ✅ معامل التحجيم
+    const factor = imageValue / drawnValue;
+
+    // ✅ نقطة المرساة = منتصف الجدار المرسوم
+    const anchorX = (drawnWall.start.x + drawnWall.end.x) / 2;
+    const anchorY = (drawnWall.start.y + drawnWall.end.y) / 2;
+
+    // ✅ الأبعاد الجديدة للصورة (فقط الصورة تتغير)
+    const newWidth = state.planImage.width * factor;
+    const newHeight = state.planImage.height * factor;
+
+    // ✅ نسبة المرساة داخل الصورة الحالية
+    const relX = (anchorX - state.planImage.x) / state.planImage.width;
+    const relY = (anchorY - state.planImage.y) / state.planImage.height;
+
+    // ✅ الموقع الجديد للصورة بحيث تبقى المرساة ثابتة
+    const newX = anchorX - relX * newWidth;
+    const newY = anchorY - relY * newHeight;
+
+    state.setPlanImage({
+      ...state.planImage,
+      x: newX,
+      y: newY,
+      width: newWidth,
+      height: newHeight,
+    });
+
+    alert('تم ضبط مقياس الصورة بنجاح!\nمعامل التحجيم = ' + factor.toFixed(3));
   };
 
   const handleLockImage = () => { if (state.planImage) state.setPlanImage({ ...state.planImage, locked: !state.planImage.locked }); };
@@ -185,20 +274,21 @@ export default function App() {
     />
   );
 
-const quantities = {
-  showQuantities: state.showQuantities,
-  onToggle: () => state.setShowQuantities(prev => !prev),
-  activeTab: state.activeTab,
-  onTabChange: state.setActiveTab,
-  walls: state.walls,
-  columns: state.elements.columns,
-  windows: state.elements.windows,
-  doors: state.elements.doors,
-  regions: state.regionsManager.regions,
-  stairs: state.stairManager.stairs,   // ✅ أضف هذا السطر
-  results: state.results,
-  canShowQuantities: !!state.projectManager.currentProjectId,
-};
+  const quantities = {
+    showQuantities: state.showQuantities,
+    onToggle: () => state.setShowQuantities(prev => !prev),
+    activeTab: state.activeTab,
+    onTabChange: state.setActiveTab,
+    walls: state.walls,
+    columns: state.elements.columns,
+    windows: state.elements.windows,
+    doors: state.elements.doors,
+    regions: state.regionsManager.regions,
+    stairs: state.stairManager.stairs,
+    results: state.results,
+    canShowQuantities: !!state.projectManager.currentProjectId,
+  };
+
   const topbar = (
     <TopToolbar
       mode={state.mode}
@@ -229,50 +319,50 @@ const quantities = {
   const sidebar = isSidebarOpen && (
     <>
       <div onClick={() => setIsSidebarOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.3)', zIndex: 1000 }} />
-      <div onClick={e => e.stopPropagation()} style={{ 
-  position: 'fixed', 
-  top: 0, 
-  right: 0, 
-  width: '33vw', 
-  maxWidth: 400, 
-  height: '100%', 
-  background: '#fff', 
-  boxShadow: '-2px 0 10px rgba(0,0,0,0.1)', 
-  zIndex: 1001, 
-  display: 'flex', 
-  flexDirection: 'column', 
-  padding: 20, 
-  gap: 15,
-  overflowY: 'auto',
-  WebkitOverflowScrolling: 'touch',
-}}>
-  <h3 style={{ margin: 0, color: '#003366' }}>إدارة المشاريع</h3>
-  <button onClick={newProject} style={btnStyles.btn}>➕ مشروع جديد</button>
-  <button onClick={save} style={btnStyles.btnPrimary}>💾 حفظ في الهاتف</button>
-  <label style={btnStyles.btn}>📂 استيراد من الهاتف
-    <input type="file" accept=".json" style={{ display: 'none' }} onChange={importProject} />
-  </label>
-  <select onChange={e => e.target.value && load(e.target.value)} style={{ padding: 8, borderRadius: 6, border: '1px solid #ccc' }}>
-    <option value="">📂 اختر مشروعاً</option>
-    {state.projectManager.projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-  </select>
-  {state.projectManager.currentProjectId && <button onClick={() => del(state.projectManager.currentProjectId!)} style={btnStyles.btnDanger}>🗑️ حذف المشروع المحدد</button>}
-  <div style={{ borderTop: '1px solid #eee', paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
-    <button onClick={toggleClip} style={{ padding: 10, borderRadius: 6, border: '1px solid #f00', background: state.clipFrame ? '#f00' : '#fff', color: state.clipFrame ? '#fff' : '#f00' }}>{state.clipFrame ? '🗑️ إزالة الكليشة' : '📐 إضافة الكليشة (A3)'}</button>
-    <button onClick={pdf} style={btnStyles.btn}>📄 PDF المسقط</button>
-    <label style={btnStyles.btn}>🖼️ استيراد مخطط
-      <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleImageUpload} />
-    </label>
-    {state.planImage && (
-      <>
-        <button onClick={handleScaleImage} style={btnStyles.btn}>📏 ضبط مقياس الرسم</button>
-        <button onClick={handleLockImage} style={btnStyles.btn}>{state.planImage.locked ? '🔓 فك قفل الصورة' : '🔒 قفل الصورة'}</button>
-        <button onClick={handleDeleteImage} style={btnStyles.btnDanger}>🗑️ حذف الصورة</button>
-      </>
-    )}
-  </div>
-  <button onClick={() => setIsSidebarOpen(false)} style={{ marginTop: 20, ...btnStyles.btn }}>✖ إغلاق</button>
-</div>
+      <div onClick={e => e.stopPropagation()} style={{
+        position: 'fixed',
+        top: 0,
+        right: 0,
+        width: '33vw',
+        maxWidth: 400,
+        height: '100%',
+        background: '#fff',
+        boxShadow: '-2px 0 10px rgba(0,0,0,0.1)',
+        zIndex: 1001,
+        display: 'flex',
+        flexDirection: 'column',
+        padding: 20,
+        gap: 15,
+        overflowY: 'auto',
+        WebkitOverflowScrolling: 'touch',
+      }}>
+        <h3 style={{ margin: 0, color: '#003366' }}>إدارة المشاريع</h3>
+        <button onClick={newProject} style={btnStyles.btn}>➕ مشروع جديد</button>
+        <button onClick={handleSaveClick} style={btnStyles.btnPrimary}>💾 حفظ في الهاتف</button>
+        <label style={btnStyles.btn}>📂 استيراد من الهاتف
+          <input type="file" accept=".json" style={{ display: 'none' }} onChange={importProject} />
+        </label>
+        <select onChange={e => e.target.value && load(e.target.value)} style={{ padding: 8, borderRadius: 6, border: '1px solid #ccc' }}>
+          <option value="">📂 اختر مشروعاً</option>
+          {state.projectManager.projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+        </select>
+        {state.projectManager.currentProjectId && <button onClick={() => del(state.projectManager.currentProjectId!)} style={btnStyles.btnDanger}>🗑️ حذف المشروع المحدد</button>}
+        <div style={{ borderTop: '1px solid #eee', paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <button onClick={toggleClip} style={{ padding: 10, borderRadius: 6, border: '1px solid #f00', background: state.clipFrame ? '#f00' : '#fff', color: state.clipFrame ? '#fff' : '#f00' }}>{state.clipFrame ? '🗑️ إزالة الكليشة' : '📐 إضافة الكليشة (A3)'}</button>
+          <button onClick={pdf} style={btnStyles.btn}>📄 PDF المسقط</button>
+          <label style={btnStyles.btn}>🖼️ استيراد مخطط
+            <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleImageUpload} />
+          </label>
+          {state.planImage && (
+            <>
+              <button onClick={handleScaleImage} style={btnStyles.btn}>📏 ضبط مقياس الرسم</button>
+              <button onClick={handleLockImage} style={btnStyles.btn}>{state.planImage.locked ? '🔓 فك قفل الصورة' : '🔒 قفل الصورة'}</button>
+              <button onClick={handleDeleteImage} style={btnStyles.btnDanger}>🗑️ حذف الصورة</button>
+            </>
+          )}
+        </div>
+        <button onClick={() => setIsSidebarOpen(false)} style={{ marginTop: 20, ...btnStyles.btn }}>✖ إغلاق</button>
+      </div>
     </>
   );
 
@@ -288,6 +378,59 @@ const quantities = {
         <div style={{ flexShrink: 0 }}>{canvas}</div>
         <QuantitiesPanel {...quantities} display="all" />
       </div>
+
+      {/* ✅ نافذة تحذير الخروج المخصصة (3 أزرار) */}
+      {exitPromptVisible && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 9999,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
+        }}>
+          <div style={{
+            background: '#fff', borderRadius: 16, padding: 24, maxWidth: 400, width: '100%',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.3)', textAlign: 'center',
+          }}>
+            <div style={{ fontSize: 48, marginBottom: 12 }}>⚠️</div>
+            <h3 style={{ margin: '0 0 12px 0', color: '#003366', fontSize: 18 }}>
+              لديك تغييرات غير محفوظة
+            </h3>
+            <p style={{ margin: '0 0 20px 0', color: '#666', fontSize: 14, lineHeight: 1.6 }}>
+              هل تريد حفظ التعديلات قبل الخروج من التطبيق؟
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <button
+                onClick={handleExitWithSave}
+                style={{
+                  padding: '12px', borderRadius: 10, border: 'none',
+                  background: '#00509e', color: '#fff',
+                  fontWeight: 700, fontSize: 15, cursor: 'pointer',
+                }}
+              >
+                💾 حفظ وخروج
+              </button>
+              <button
+                onClick={handleExitWithoutSave}
+                style={{
+                  padding: '12px', borderRadius: 10, border: 'none',
+                  background: '#dc3545', color: '#fff',
+                  fontWeight: 700, fontSize: 15, cursor: 'pointer',
+                }}
+              >
+                🚪 خروج بدون حفظ
+              </button>
+              <button
+                onClick={handleCancelExit}
+                style={{
+                  padding: '12px', borderRadius: 10,
+                  border: '2px solid #ccc', background: '#f0f0f0',
+                  color: '#333', fontWeight: 700, fontSize: 15, cursor: 'pointer',
+                }}
+              >
+                ✖ إلغاء الخروج
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
