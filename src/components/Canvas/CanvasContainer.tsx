@@ -66,9 +66,25 @@ interface Props {
 
 export const CanvasContainer: React.FC<Props> = (props) => {
   const setup = useCanvasSetup(props);
-  const events = useCanvasEvents({ ...props, setup, planImage: props.planImage, onPlanImageChange: props.setPlanImage });
+
+  // ✅ دالة تحديد الصورة عند النقر عليها
+  const onImageSelect = React.useCallback((_id: string | null) => {
+    if (props.planImage && !props.planImage.isSelected) {
+      props.setPlanImage({ ...props.planImage, isSelected: true });
+    }
+  }, [props]);
+
+  const events = useCanvasEvents({
+    ...props,
+    setup,
+    planImage: props.planImage,
+    onPlanImageChange: props.setPlanImage,
+    onImageSelect,
+  });
+
   const { containerRef, size, view, drawing, edit, elementEdit, textEdit, selectedRegionId, setSelectedRegionId, selectedStairId, setSelectedStairId, showRightSidebar, showLeftSidebar, selectedType, deselectAll, reset } = setup;
   const toolActive = ['drawing', 'column', 'window', 'door', 'kitchen', 'bathroom', 'text', 'stair', 'dimension'].includes(props.mode);
+
   return (
     <div>
       {toolActive && (
@@ -92,6 +108,46 @@ export const CanvasContainer: React.FC<Props> = (props) => {
         />
       )}
       <div style={{ position: 'relative' }}>
+
+        {/* ✅ أزرار التحكم بالصورة المستوردة (تظهر عند التحديد) */}
+        {props.planImage?.isSelected && (
+          <div
+            style={{
+              position: 'absolute',
+              top: 8,
+              left: 8,
+              display: 'flex',
+              gap: 6,
+              zIndex: 200,
+            }}
+            onPointerDown={e => e.stopPropagation()}
+            onPointerUp={e => e.stopPropagation()}
+          >
+            <button
+              onClick={() => {
+                const currentRotation = props.planImage!.rotation || 0;
+                const newRotation = (currentRotation + Math.PI / 2) % (Math.PI * 2);
+                props.setPlanImage({ ...props.planImage!, rotation: newRotation });
+              }}
+              style={{ padding: '8px 12px', borderRadius: 6, border: '1px solid #f80', background: '#fff', color: '#f80', cursor: 'pointer', fontWeight: 700, fontSize: 14 }}
+            >🔄 تدوير 90°</button>
+            <button
+              onClick={() => {
+                if (confirm('حذف الصورة المستوردة؟')) {
+                  props.setPlanImage(null);
+                }
+              }}
+              style={{ padding: '8px 12px', borderRadius: 6, border: '1px solid #e44', background: '#e44', color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 14 }}
+            >🗑️ حذف الصورة</button>
+            <button
+              onClick={() => {
+                props.setPlanImage({ ...props.planImage!, isSelected: false });
+              }}
+              style={{ padding: '8px 12px', borderRadius: 6, border: '1px solid #555', background: '#555', color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 14 }}
+            >✖</button>
+          </div>
+        )}
+
         <CanvasSidebars
           showRightSidebar={showRightSidebar}
           showLeftSidebar={showLeftSidebar}
@@ -141,7 +197,7 @@ export const CanvasContainer: React.FC<Props> = (props) => {
             planImage={props.planImage}
             axes={props.axes}
             selectedAxisId={setup.axisEdit.selectedAxisId}
-          showGrid={props.showGrid}
+            showGrid={props.showGrid}
           />
           {!toolActive && (<CanvasZoomControls onZoomIn={() => events.zoomAtPoint(size.w / 2, size.h / 2, 1.2)} onZoomOut={() => events.zoomAtPoint(size.w / 2, size.h / 2, 1 / 1.2)} onReset={reset} />)}
         </div>
