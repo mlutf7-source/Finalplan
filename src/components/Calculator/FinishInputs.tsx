@@ -58,7 +58,6 @@ const btnStyle: React.CSSProperties = {
   fontSize: 14,
 };
 
-// دالة تحويل آمنة (لا تعيد NaN أبداً)
 const safeParse = (val: string, fallback: number) => {
   if (val === '' || val === '.' || val === ',') return fallback;
   const num = parseFloat(val.replace(',', '.'));
@@ -76,7 +75,6 @@ export const FinishInputs: React.FC<Props> = ({
     if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
   };
 
-  // دالة الحفظ عند مغادرة الحقل
   const commitEdit = (e: React.FocusEvent<HTMLInputElement>, fallback: number, onChange: (n: number) => void) => {
     const num = safeParse(e.target.value, fallback);
     onChange(num);
