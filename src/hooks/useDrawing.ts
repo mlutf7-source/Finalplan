@@ -4,8 +4,11 @@ import { distance, snapAngle, getAngle } from '../core/geometry';
 import { findSnapToFace } from '../core/snapToFace';
 import { v4 as uuidv4 } from 'uuid';
 
-const SNAP = 0.3;
+// ✅ مسافة قريبة جداً لالتقاط الوجه (10 سم بدل 30)
+const SNAP = 0.1;
 const SNAP_TO_AXIS = 0.5;
+// ✅ المسافة المسموحة للانحراف العمودي (5 سم) - للحفاظ على استقامة الجدار
+const STRAIGHT_TOLERANCE = 0.05;
 
 interface DrawState {
   active: boolean;
@@ -25,22 +28,19 @@ export function useDrawing(walls: Wall[], axes: Axis[], onAdd: (w: Wall) => void
 
   const snapToAxis = useCallback((originalStart: Point, end: Point, type: DrawingType): { start: Point; end: Point } => {
     if (axes.length === 0) return { start: originalStart, end };
-    const thickness = type === 'exterior' ? 0.3 : 0.2;
-    const halfThick = thickness / 2;
     const dx = Math.abs(end.x - originalStart.x);
     const dy = Math.abs(end.y - originalStart.y);
-
     if (dx > dy) {
-      const nearAxis = axes.find(a => a.type === 'horizontal' && Math.abs(originalStart.y - (a.position - a.offset + halfThick)) < SNAP_TO_AXIS);
+      const nearAxis = axes.find(a => a.type === 'horizontal' && Math.abs(originalStart.y - (a.position - a.offset)) < SNAP_TO_AXIS);
       if (nearAxis) {
-        const adjustedY = nearAxis.position - nearAxis.offset - halfThick;
-        return { start: { ...originalStart, y: adjustedY }, end: { ...end, y: adjustedY } };
+        const axisY = nearAxis.position - nearAxis.offset;
+        return { start: { ...originalStart, y: axisY }, end: { ...end, y: axisY } };
       }
     } else {
-      const nearAxis = axes.find(a => a.type === 'vertical' && Math.abs(originalStart.x - (a.position + a.offset - halfThick)) < SNAP_TO_AXIS);
+      const nearAxis = axes.find(a => a.type === 'vertical' && Math.abs(originalStart.x - (a.position + a.offset)) < SNAP_TO_AXIS);
       if (nearAxis) {
-        const adjustedX = nearAxis.position + nearAxis.offset + halfThick;
-        return { start: { ...originalStart, x: adjustedX }, end: { ...end, x: adjustedX } };
+        const axisX = nearAxis.position + nearAxis.offset;
+        return { start: { ...originalStart, x: axisX }, end: { ...end, x: axisX } };
       }
     }
     return { start: originalStart, end };
@@ -58,18 +58,48 @@ export function useDrawing(walls: Wall[], axes: Axis[], onAdd: (w: Wall) => void
       if (!prev.active || !prev.originalStart || !prev.type) return prev;
       const originalStart = prev.originalStart;
       const angle = getAngle(originalStart, pt);
-      const snapped = snapAngle(angle);
+      const snappedAngle = snapAngle(angle);
+      const isHorizontal = Math.abs(snappedAngle) < 0.001 || Math.abs(snappedAngle - Math.PI) < 0.001;
+      const isAngleSnapped = snappedAngle !== angle;
+
+      // 1. تثبيت الزاوية (أفقي أو رأسي)
       let end: Point;
-      if (snapped !== angle) {
-        end = Math.abs(snapped) < 0.001 || Math.abs(snapped - Math.PI) < 0.001
+      if (isAngleSnapped) {
+        end = isHorizontal
           ? { x: pt.x, y: originalStart.y }
           : { x: originalStart.x, y: pt.y };
       } else {
         end = pt;
       }
-      const snap = findSnapToFace(end, walls, undefined, SNAP);
-      end = snap?.point ?? end;
-      if (!snap) {
+
+      // 2. محاولة التقاط الوجه (بشرط الحفاظ على الاستقامة)
+      const faceSnap = findSnapToFace(end, walls, undefined, SNAP);
+      let usedFaceSnap = false;
+      if (faceSnap) {
+        if (isAngleSnapped) {
+          // ✅ إذا تم تثبيت الزاوية، نتحقق من التوافق مع الخط
+          if (isHorizontal) {
+            // جدار أفقي: يجب أن يكون y الملتقط = y البداية (بفارق صغير)
+            if (Math.abs(faceSnap.point.y - originalStart.y) < STRAIGHT_TOLERANCE) {
+              end = faceSnap.point;
+              usedFaceSnap = true;
+            }
+          } else {
+            // جدار رأسي: يجب أن يكون x الملتقط = x البداية
+            if (Math.abs(faceSnap.point.x - originalStart.x) < STRAIGHT_TOLERANCE) {
+              end = faceSnap.point;
+              usedFaceSnap = true;
+            }
+          }
+        } else {
+          // إذا لم يتم تثبيت الزاوية، نستخدم snap الوجه مباشرة
+          end = faceSnap.point;
+          usedFaceSnap = true;
+        }
+      }
+
+      // 3. محاولة التقاط المحور (فقط إذا لم يُستخدم snap الوجه)
+      if (!usedFaceSnap) {
         const result = snapToAxis(originalStart, end, prev.type);
         return { ...prev, start: result.start, end: result.end };
       }
@@ -105,4 +135,4 @@ export function useDrawing(walls: Wall[], axes: Axis[], onAdd: (w: Wall) => void
   }, [onAdd, reset]);
 
   return { isDrawing: d.active, drawingType: d.type, tempStart: d.start, tempEnd: d.end, lastWallId, begin, move, finish, finishWithLength, cancel: reset };
-}
+        }
