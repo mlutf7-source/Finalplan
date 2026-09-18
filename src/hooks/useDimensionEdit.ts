@@ -4,92 +4,60 @@ import type { Dimension } from '../core/dimensionTypes';
 import { distance, closestPointOnSegment, getAngle, wallRectangle } from '../core/geometry';
 
 const HANDLE = 0.2;
-const SNAP = 0.2;
+const SNAP = 0.3;
 const SNAP_TO_AXIS = 0.3;
 
-// ✅ snap على محور (بدون تغيير الإحداثي الثابت للحفاظ على الاستقامة)
-function snapPointToAxisOnLine(
-  pt: Point,
-  axes: Axis[],
-  isHorizontal: boolean,
-  fixedCoord: number,
-  tolerance: number,
-): Point {
-  for (const axis of axes) {
-    if (isHorizontal) {
-      // الأبعاد الأفقية تلتقط المحاور الرأسية فقط (تغيير X فقط)
-      if (axis.type !== 'vertical') continue;
-      const axisX = axis.position + axis.offset;
-      if (Math.abs(pt.x - axisX) < tolerance) {
-        return { x: axisX, y: fixedCoord };
-      }
-    } else {
-      // الأبعاد الرأسية تلتقط المحاور الأفقية فقط (تغيير Y فقط)
-      if (axis.type !== 'horizontal') continue;
-      const axisY = axis.position - axis.offset;
-      if (Math.abs(pt.y - axisY) < tolerance) {
-        return { x: fixedCoord, y: axisY };
-      }
-    }
-  }
-  return { ...pt };
-}
-
-// ✅ إيجاد أقرب نقطة snap على خط البعد فقط (زاوية أو وجه)
-function findClosestSnapOnLine(
-  pt: Point,
-  walls: Wall[],
-  isHorizontal: boolean,
-  fixedCoord: number,
-  tolerance: number,
-): Point | null {
-  let best: Point | null = null;
-  let bestDist = tolerance;
-
+// ✅ إيجاد أقرب X لجدار (من زوايا الـ wallRectangle)
+function findNearestWallX(pt: Point, walls: Wall[], tol: number): number | null {
+  let best: number | null = null;
+  let bestDist = tol;
   for (const wall of walls) {
     const rect = wallRectangle(wall);
-
-    // ✅ فحص الزوايا (يجب أن تكون الزاوية على نفس خط البعد)
-    for (const corner of rect.corners) {
-      const coord = isHorizontal ? corner.y : corner.x;
-      if (Math.abs(coord - fixedCoord) > 0.02) continue;
-      const d = isHorizontal
-        ? Math.abs(corner.x - pt.x)
-        : Math.abs(corner.y - pt.y);
-      if (d < bestDist) {
-        bestDist = d;
-        best = { x: corner.x, y: corner.y };
-      }
-    }
-
-    // ✅ فحص الأوجه (النقطة الأقرب على الخط فقط)
-    for (const face of rect.faces) {
-      if (isHorizontal) {
-        if (Math.abs(face.start.y - fixedCoord) > 0.02) continue;
-        if (Math.abs(face.end.y - fixedCoord) > 0.02) continue;
-        const minX = Math.min(face.start.x, face.end.x);
-        const maxX = Math.max(face.start.x, face.end.x);
-        const snappedX = Math.max(minX, Math.min(maxX, pt.x));
-        const d = Math.abs(snappedX - pt.x);
-        if (d < bestDist) {
-          bestDist = d;
-          best = { x: snappedX, y: fixedCoord };
-        }
-      } else {
-        if (Math.abs(face.start.x - fixedCoord) > 0.02) continue;
-        if (Math.abs(face.end.x - fixedCoord) > 0.02) continue;
-        const minY = Math.min(face.start.y, face.end.y);
-        const maxY = Math.max(face.start.y, face.end.y);
-        const snappedY = Math.max(minY, Math.min(maxY, pt.y));
-        const d = Math.abs(snappedY - pt.y);
-        if (d < bestDist) {
-          bestDist = d;
-          best = { x: fixedCoord, y: snappedY };
-        }
-      }
+    for (const c of rect.corners) {
+      const d = Math.abs(c.x - pt.x);
+      if (d < bestDist) { bestDist = d; best = c.x; }
     }
   }
+  return best;
+}
 
+// ✅ إيجاد أقرب Y لجدار
+function findNearestWallY(pt: Point, walls: Wall[], tol: number): number | null {
+  let best: number | null = null;
+  let bestDist = tol;
+  for (const wall of walls) {
+    const rect = wallRectangle(wall);
+    for (const c of rect.corners) {
+      const d = Math.abs(c.y - pt.y);
+      if (d < bestDist) { bestDist = d; best = c.y; }
+    }
+  }
+  return best;
+}
+
+// ✅ إيجاد أقرب X لمحور رأسي
+function findNearestAxisX(pt: Point, axes: Axis[], tol: number): number | null {
+  let best: number | null = null;
+  let bestDist = tol;
+  for (const axis of axes) {
+    if (axis.type !== 'vertical') continue;
+    const axisX = axis.position + axis.offset;
+    const d = Math.abs(pt.x - axisX);
+    if (d < bestDist) { bestDist = d; best = axisX; }
+  }
+  return best;
+}
+
+// ✅ إيجاد أقرب Y لمحور أفقي
+function findNearestAxisY(pt: Point, axes: Axis[], tol: number): number | null {
+  let best: number | null = null;
+  let bestDist = tol;
+  for (const axis of axes) {
+    if (axis.type !== 'horizontal') continue;
+    const axisY = axis.position - axis.offset;
+    const d = Math.abs(pt.y - axisY);
+    if (d < bestDist) { bestDist = d; best = axisY; }
+  }
   return best;
 }
 
@@ -150,7 +118,7 @@ export function useDimensionEdit(
       const isHorizontal =
         Math.abs(baseAngle) < 0.001 || Math.abs(baseAngle - Math.PI) < 0.001;
 
-      // 1. اطرح الإزاحة من المؤشر للحصول على النقطة الأصلية على خط البعد
+      // اطرح الإزاحة للحصول على النقطة الأصلية
       const normal = { x: -Math.sin(baseAngle), y: Math.cos(baseAngle) };
       const originalPt: Point = {
         x: pt.x - normal.x * dim.offset,
@@ -158,44 +126,45 @@ export function useDimensionEdit(
       };
 
       if (dragTypeRef.current === 'start') {
-        const fixedEnd = dim.end;
-        const fixedCoord = isHorizontal ? fixedEnd.y : fixedEnd.x;
+        const fixedCoord = isHorizontal ? dim.end.y : dim.end.x;
 
-        // 2. احسب النقطة المستقيمة (على خط البعد)
-        const stablePoint: Point = isHorizontal
-          ? { x: originalPt.x, y: fixedCoord }
-          : { x: fixedCoord, y: originalPt.y };
-
-        // 3. ابحث عن أقرب snap على خط البعد نفسه فقط
-        const snapOnLine = findClosestSnapOnLine(
-          stablePoint, walls, isHorizontal, fixedCoord, SNAP
-        );
-        if (snapOnLine) return { ...dim, start: snapOnLine };
-
-        // 4. حاول snap على المحاور المتعامدة (فقط)
-        const axisSnapped = snapPointToAxisOnLine(
-          stablePoint, axes, isHorizontal, fixedCoord, SNAP_TO_AXIS
-        );
-        return { ...dim, start: axisSnapped };
+        if (isHorizontal) {
+          // ✅ للبعد الأفقي: ثبّت Y، وابحث عن أقرب X لجدار
+          const probe: Point = { x: originalPt.x, y: fixedCoord };
+          const wallX = findNearestWallX(probe, walls, SNAP);
+          if (wallX !== null) return { ...dim, start: { x: wallX, y: fixedCoord } };
+          const axisX = findNearestAxisX(probe, axes, SNAP_TO_AXIS);
+          if (axisX !== null) return { ...dim, start: { x: axisX, y: fixedCoord } };
+          return { ...dim, start: { x: originalPt.x, y: fixedCoord } };
+        } else {
+          // ✅ للبعد الرأسي: ثبّت X، وابحث عن أقرب Y لجدار
+          const probe: Point = { x: fixedCoord, y: originalPt.y };
+          const wallY = findNearestWallY(probe, walls, SNAP);
+          if (wallY !== null) return { ...dim, start: { x: fixedCoord, y: wallY } };
+          const axisY = findNearestAxisY(probe, axes, SNAP_TO_AXIS);
+          if (axisY !== null) return { ...dim, start: { x: fixedCoord, y: axisY } };
+          return { ...dim, start: { x: fixedCoord, y: originalPt.y } };
+        }
       }
 
       if (dragTypeRef.current === 'end') {
-        const fixedStart = dim.start;
-        const fixedCoord = isHorizontal ? fixedStart.y : fixedStart.x;
+        const fixedCoord = isHorizontal ? dim.start.y : dim.start.x;
 
-        const stablePoint: Point = isHorizontal
-          ? { x: originalPt.x, y: fixedCoord }
-          : { x: fixedCoord, y: originalPt.y };
-
-        const snapOnLine = findClosestSnapOnLine(
-          stablePoint, walls, isHorizontal, fixedCoord, SNAP
-        );
-        if (snapOnLine) return { ...dim, end: snapOnLine };
-
-        const axisSnapped = snapPointToAxisOnLine(
-          stablePoint, axes, isHorizontal, fixedCoord, SNAP_TO_AXIS
-        );
-        return { ...dim, end: axisSnapped };
+        if (isHorizontal) {
+          const probe: Point = { x: originalPt.x, y: fixedCoord };
+          const wallX = findNearestWallX(probe, walls, SNAP);
+          if (wallX !== null) return { ...dim, end: { x: wallX, y: fixedCoord } };
+          const axisX = findNearestAxisX(probe, axes, SNAP_TO_AXIS);
+          if (axisX !== null) return { ...dim, end: { x: axisX, y: fixedCoord } };
+          return { ...dim, end: { x: originalPt.x, y: fixedCoord } };
+        } else {
+          const probe: Point = { x: fixedCoord, y: originalPt.y };
+          const wallY = findNearestWallY(probe, walls, SNAP);
+          if (wallY !== null) return { ...dim, end: { x: fixedCoord, y: wallY } };
+          const axisY = findNearestAxisY(probe, axes, SNAP_TO_AXIS);
+          if (axisY !== null) return { ...dim, end: { x: fixedCoord, y: axisY } };
+          return { ...dim, end: { x: fixedCoord, y: originalPt.y } };
+        }
       }
 
       return dim;
@@ -209,4 +178,4 @@ export function useDimensionEdit(
   }, [dimensions, selectedDimId, onChange, deselect]);
 
   return { selectedDimId, hitTest, select, deselect, moveEdit, deleteSelected };
-                                }
+}
