@@ -16,33 +16,30 @@ interface Props {
   plumbingPts: number;
   onElectricalChange: (value: number) => void;
   onPlumbingChange: (value: number) => void;
+  onMarbleAreaChange?: (value: number) => void;
 }
 
 const TotalLaborSummary: React.FC<{
   results: FinishResults;
   hasMarble: boolean;
 }> = ({ results, hasMarble }) => {
-  // إجمالي عمالة الجدران
   const totalWallLabor = Math.ceil(
     results.exteriorWallGross +
     results.interiorWallGross
   );
 
-  // إجمالي عمالة التلييس
   const totalPlasterLabor = Math.ceil(
     results.plasterWallsLabor +
     (results.plasterCeilingLabor -
       results.innerWallArea)
   );
 
-  // إجمالي عمالة الطلاء
   const totalPaintLabor = Math.ceil(
     results.paintWalls +
     (results.paintCeiling -
       results.innerWallArea)
   );
 
-  // إجمالي عمالة البلاط
   const totalTileLabor = Math.ceil(
     (results.tileFloorArea -
       results.innerWallArea) +
@@ -91,22 +88,9 @@ const TotalLaborSummary: React.FC<{
 
   return (
     <div style={cardStyle}>
-      <div style={headStyle}>
-        📊 إجمالي كميات العمالة
-      </div>
-
-      <div
-        style={{
-          padding: 10,
-          overflowX: 'auto',
-        }}
-      >
-        <table
-          style={{
-            width: '100%',
-            borderCollapse: 'collapse',
-          }}
-        >
+      <div style={headStyle}>📊 إجمالي كميات العمالة</div>
+      <div style={{ padding: 10, overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr>
               <th style={thStyle}>البند</th>
@@ -114,93 +98,13 @@ const TotalLaborSummary: React.FC<{
               <th style={thStyle}>الوحدة</th>
             </tr>
           </thead>
-
           <tbody>
-            <tr>
-              <td
-                style={{
-                  ...tdStyle,
-                  fontWeight: 600,
-                }}
-              >
-                إجمالي عمالة الجدران
-              </td>
-
-              <td style={tdStyle}>
-                {totalWallLabor}
-              </td>
-
-              <td style={tdStyle}>م²</td>
-            </tr>
-
-            <tr>
-              <td
-                style={{
-                  ...tdStyle,
-                  fontWeight: 600,
-                }}
-              >
-                إجمالي عمالة التلييس
-              </td>
-
-              <td style={tdStyle}>
-                {totalPlasterLabor}
-              </td>
-
-              <td style={tdStyle}>م²</td>
-            </tr>
-
-            <tr>
-              <td
-                style={{
-                  ...tdStyle,
-                  fontWeight: 600,
-                }}
-              >
-                إجمالي عمالة الطلاء
-              </td>
-
-              <td style={tdStyle}>
-                {totalPaintLabor}
-              </td>
-
-              <td style={tdStyle}>م²</td>
-            </tr>
-
-            <tr>
-              <td
-                style={{
-                  ...tdStyle,
-                  fontWeight: 600,
-                }}
-              >
-                إجمالي عمالة البلاط
-              </td>
-
-              <td style={tdStyle}>
-                {totalTileLabor}
-              </td>
-
-              <td style={tdStyle}>م²</td>
-            </tr>
-
+            <tr><td style={{ ...tdStyle, fontWeight: 600 }}>إجمالي عمالة الجدران</td><td style={tdStyle}>{totalWallLabor}</td><td style={tdStyle}>م²</td></tr>
+            <tr><td style={{ ...tdStyle, fontWeight: 600 }}>إجمالي عمالة التلييس</td><td style={tdStyle}>{totalPlasterLabor}</td><td style={tdStyle}>م²</td></tr>
+            <tr><td style={{ ...tdStyle, fontWeight: 600 }}>إجمالي عمالة الطلاء</td><td style={tdStyle}>{totalPaintLabor}</td><td style={tdStyle}>م²</td></tr>
+            <tr><td style={{ ...tdStyle, fontWeight: 600 }}>إجمالي عمالة البلاط</td><td style={tdStyle}>{totalTileLabor}</td><td style={tdStyle}>م²</td></tr>
             {hasMarble && (
-              <tr>
-                <td
-                  style={{
-                    ...tdStyle,
-                    fontWeight: 600,
-                  }}
-                >
-                  إجمالي عمالة الرخام
-                </td>
-
-                <td style={tdStyle}>
-                  {totalMarbleLabor}
-                </td>
-
-                <td style={tdStyle}>م²</td>
-              </tr>
+              <tr><td style={{ ...tdStyle, fontWeight: 600 }}>إجمالي عمالة الرخام</td><td style={tdStyle}>{totalMarbleLabor}</td><td style={tdStyle}>م²</td></tr>
             )}
           </tbody>
         </table>
@@ -216,24 +120,15 @@ export const FinishTables: React.FC<Props> = ({
   plumbingPts,
   onElectricalChange,
   onPlumbingChange,
+  onMarbleAreaChange,
 }) => {
   const handlePdfShare = async () => {
-    await createPdfFromElement(
-      'finishes-pdf',
-      'تقرير_التشطيبات'
-    );
+    await createPdfFromElement('finishes-pdf', 'تقرير_التشطيبات');
   };
 
   return (
     <>
-      {/* زر مشاركة PDF */}
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'flex-start',
-          marginBottom: 12,
-        }}
-      >
+      <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: 12 }}>
         <button
           type="button"
           onClick={handlePdfShare}
@@ -253,50 +148,24 @@ export const FinishTables: React.FC<Props> = ({
         </button>
       </div>
 
-      <LaborTable
-        results={results}
-        hasMarble={hasMarble}
-      />
-
-      {/* جدول التحقق من مساحات الخصومات */}
-      <DeductionsTable
-        results={results}
-      />
-
-      {/* إجمالي كميات العمالة */}
-      <TotalLaborSummary
-        results={results}
-        hasMarble={hasMarble}
-      />
-
-      <WallConstructionTables
-        results={results}
-      />
-
-      <PlasterPaintTables
-        results={results}
-      />
-
+      <LaborTable results={results} hasMarble={hasMarble} />
+      <DeductionsTable results={results} />
+      <TotalLaborSummary results={results} hasMarble={hasMarble} />
+      <WallConstructionTables results={results} />
+      <PlasterPaintTables results={results} />
       <TileMarbleTables
         results={results}
         hasMarble={hasMarble}
+        onMarbleAreaChange={onMarbleAreaChange}
       />
-
-      <OpeningTables
-        results={results}
-      />
-
+      <OpeningTables results={results} />
       <UtilitySummaryTables
         results={results}
         hasMarble={hasMarble}
         electricalPts={electricalPts}
         plumbingPts={plumbingPts}
-        onElectricalChange={
-          onElectricalChange
-        }
-        onPlumbingChange={
-          onPlumbingChange
-        }
+        onElectricalChange={onElectricalChange}
+        onPlumbingChange={onPlumbingChange}
       />
     </>
   );
