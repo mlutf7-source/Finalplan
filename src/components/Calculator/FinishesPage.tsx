@@ -152,6 +152,8 @@ export const FinishesPage: React.FC<Props> = ({
         landing: roundedRes.landingTileArea,
         steps: roundedRes.stepTileCount,
       },
+      electricalPoints: roundedRes.electricalPoints,
+plumbingPoints: roundedRes.plumbingPoints,
       marble: {
         area: roundedRes.marbleArea,
         aggregate: roundedRes.marbleAggregate,
