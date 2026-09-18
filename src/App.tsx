@@ -185,8 +185,20 @@ export default function App() {
     />
   );
 
-  const quantities = { showQuantities: state.showQuantities, onToggle: () => state.setShowQuantities(prev => !prev), activeTab: state.activeTab, onTabChange: state.setActiveTab, walls: state.walls, columns: state.elements.columns, windows: state.elements.windows, doors: state.elements.doors, regions: state.regionsManager.regions, results: state.results, canShowQuantities: !!state.projectManager.currentProjectId };
-
+const quantities = {
+  showQuantities: state.showQuantities,
+  onToggle: () => state.setShowQuantities(prev => !prev),
+  activeTab: state.activeTab,
+  onTabChange: state.setActiveTab,
+  walls: state.walls,
+  columns: state.elements.columns,
+  windows: state.elements.windows,
+  doors: state.elements.doors,
+  regions: state.regionsManager.regions,
+  stairs: state.stairManager.stairs,   // ✅ أضف هذا السطر
+  results: state.results,
+  canShowQuantities: !!state.projectManager.currentProjectId,
+};
   const topbar = (
     <TopToolbar
       mode={state.mode}
