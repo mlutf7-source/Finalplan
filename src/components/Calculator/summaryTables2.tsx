@@ -12,33 +12,56 @@ export const SummaryTables2 = ({ data, o, setO, cur, cv, floors, hasMarble = fal
   const fext = prices.finishesExtra || [];
   const doorsAndWindows = prices.doorsAndWindows || [];
 
-  // ✅ قراءة الإجماليات من finishes (من جداول التشطيبات)
   const totalBlocks = Math.ceil(n(finishes?.totalBlocks) * floors);
   const totalCement = Math.ceil(n(finishes?.totalCement) * floors);
   const totalSand = Math.ceil(n(finishes?.totalSand) * floors);
   const totalAggregate = Math.ceil(n(finishes?.totalAggregate) * floors);
   const totalMarbleArea = Math.ceil(n(finishes?.totalMarbleArea) * floors);
-  const totalDoors = Math.ceil(n(finishes?.totalDoors) * floors);
-  const totalWindows = Math.ceil(n(finishes?.totalWindows) * floors);
 
-  // ✅ قراءة كميات الطلاء (المصححة)
+  // ✅ الأبواب والنوافذ بالمتر المربع
+  const totalDoorsArea = n(finishes?.totalDoorsArea) * floors;
+  const totalWindowsArea = n(finishes?.totalWindowsArea) * floors;
+
+  // ✅ إجمالي البلاط (أرضيات + مطابخ + حمامات + جدران مطابخ + جدران حمامات)
+  const totalTileArea = Math.ceil(
+    n(finishes?.tileFloorArea) +
+    n(finishes?.tileKitchenFloor) +
+    n(finishes?.tileBathroomFloor) +
+    n(finishes?.tileKitchenWalls) +
+    n(finishes?.tileBathroomWalls)
+  );
+
+  // ✅ بلاط البسطة والدرج
+  const landingTileArea = Math.ceil(n(finishes?.landingTileArea) * floors);
+  const stepTileCount = Math.ceil(n(finishes?.stepTileCount) * floors);
+
+  // ✅ نقاط الكهرباء والسباكة
+  const electricalPoints = Math.ceil(n(finishes?.electricalPoints) * floors);
+  const plumbingPoints = Math.ceil(n(finishes?.plumbingPoints) * floors);
+
+  // ✅ عمالة الكهرباء والسباكة
+  const electricalLaborPrice = n(flab[5]?.price || '0');
+  const plumbingLaborPrice = n(flab[6]?.price || '0');
+  const electricalLaborCost = electricalPoints * electricalLaborPrice;
+  const plumbingLaborCost = plumbingPoints * plumbingLaborPrice;
+
+  // ✅ مواد الكهرباء (بالمتر المربع)
+  const electricalMaterialsPrice = n(fext[2]?.price || '0');
+  const electricalMaterialsCost = buildingArea * floors * electricalMaterialsPrice;
+
   const totalPutty = Math.ceil(n(finishes?.paint?.putty) * floors);
   const totalPrimer = Math.ceil(n(finishes?.paint?.primer) * floors);
   const totalPaint = Math.ceil(n(finishes?.paint?.paint) * floors);
 
-  // ✅ قراءة عمالة التشطيبات من جدول إجمالي كميات العمالة
   const totalWallLaborFloors = Math.ceil((n(finishes?.exteriorWallGross) + n(finishes?.interiorWallGross)) * floors);
   const totalPlasterLaborFloors = Math.ceil((n(finishes?.plasterWallsLabor) + (n(finishes?.plasterCeilingLabor) - n(finishes?.innerWallArea))) * floors);
   const totalPaintLaborFloors = Math.ceil((n(finishes?.paintWalls) + (n(finishes?.paintCeiling) - n(finishes?.innerWallArea))) * floors);
   const totalTileLaborFloors = Math.ceil(((n(finishes?.tileFloorArea) - n(finishes?.innerWallArea)) + n(finishes?.tileKitchenFloor) + n(finishes?.tileBathroomFloor) + n(finishes?.tileKitchenWalls) + n(finishes?.tileBathroomWalls)) * floors);
 
-  // ✅ عمالة الرخام
   const totalMarbleLaborFloors = hasMarble ? Math.ceil(n(finishes?.exteriorWallGross) * floors) : 0;
 
-  // ✅ عمالة بناء البلوك = نفس قيمة عمالة الجدران
   const blockLaborArea = totalWallLaborFloors;
 
-  // إعدادات عمالة البلوك
   const blockLaborMode = prices.blockMode || 'm2';
   const blockLaborUnit = n(flab[0]?.price || '0');
 
@@ -51,7 +74,7 @@ export const SummaryTables2 = ({ data, o, setO, cur, cv, floors, hasMarble = fal
   const slabConcreteForLabor = buildingArea * 0.3 * floors;
   const laborTotal = n(struct?.footingConcrete) * laborPrice + n(struct?.neckConcrete) * laborPrice + n(struct?.columnConcrete) * floors * laborPrice + n(struct?.middConcrete) * laborPrice + slabConcreteForLabor * laborPrice;
 
-  // تكلفة مواد التشطيبات
+  // ✅ تكلفة مواد التشطيبات (مع إجمالي البلاط)
   const fmCost =
     totalBlocks * n(fmat[0]?.price || '0') +
     totalCement * n(fmat[2]?.price || '0') +
@@ -61,23 +84,29 @@ export const SummaryTables2 = ({ data, o, setO, cur, cv, floors, hasMarble = fal
     totalPutty * n(fmat[5]?.price || '0') +
     totalPrimer * n(fmat[6]?.price || '0') +
     totalPaint * n(fmat[7]?.price || '0') +
-    Math.ceil(n(finishes?.tile?.floor) * floors) * n(fmat[8]?.price || '0');
+    totalTileArea * n(fmat[8]?.price || '0') +
+    landingTileArea * n(fmat[8]?.price || '0') +
+    stepTileCount * n(fmat[9]?.price || '0');
 
-  // تكلفة عمالة التشطيبات
   const blockLaborCost = blockLaborMode === 'm2' ? blockLaborArea * blockLaborUnit : totalBlocks * blockLaborUnit;
 
+  // ✅ تكلفة عمالة التشطيبات (مع كهرباء وسباكة)
   const flCost =
     blockLaborCost +
     totalMarbleLaborFloors * n(flab[1]?.price || '0') +
     totalPlasterLaborFloors * n(flab[2]?.price || '0') +
     totalPaintLaborFloors * n(flab[3]?.price || '0') +
-    totalTileLaborFloors * n(flab[4]?.price || '0');
+    totalTileLaborFloors * n(flab[4]?.price || '0') +
+    electricalLaborCost +
+    plumbingLaborCost;
 
+  // ✅ تكاليف إضافية (مع مواد الكهرباء + الأبواب والنوافذ بالمتر المربع)
   const feCost =
     Math.ceil(n(finishes?.extras?.bathrooms) * floors) * n(fext[0]?.price || '0') +
     Math.ceil(n(finishes?.extras?.kitchens) * floors) * n(fext[1]?.price || '0') +
-    totalWindows * n(doorsAndWindows[1]?.price || '0') +
-    totalDoors * n(doorsAndWindows[2]?.price || '0');
+    electricalMaterialsCost +
+    totalWindowsArea * n(doorsAndWindows[1]?.price || '0') +
+    totalDoorsArea * n(doorsAndWindows[2]?.price || '0');
 
   const grandTotal = cv(prelimCost + totalConcreteCost + totalSteelCost + totalBlocksCost + laborTotal + (fmCost + flCost + feCost));
 
@@ -85,8 +114,10 @@ export const SummaryTables2 = ({ data, o, setO, cur, cv, floors, hasMarble = fal
   const steelPerM2 = (buildingArea > 0) ? n(struct?.totalSteel) / buildingArea : 0;
   const concretePerM2 = (buildingArea > 0) ? n(struct?.totalConcrete) / buildingArea : 0;
 
+  const prelimPercent = grandTotal > 0 ? (cv(prelimCost) / grandTotal) * 100 : 0;
   const steelPercent = grandTotal > 0 ? (cv(totalSteelCost) / grandTotal) * 100 : 0;
   const concretePercent = grandTotal > 0 ? (cv(totalConcreteCost) / grandTotal) * 100 : 0;
+  const blocksPercent = grandTotal > 0 ? (cv(totalBlocksCost) / grandTotal) * 100 : 0;
   const laborPercent = grandTotal > 0 ? (cv(laborTotal) / grandTotal) * 100 : 0;
   const finishesPercent = grandTotal > 0 ? (cv((fmCost + flCost + feCost)) / grandTotal) * 100 : 0;
 
@@ -103,7 +134,16 @@ export const SummaryTables2 = ({ data, o, setO, cur, cv, floors, hasMarble = fal
             <Tr4 label={`الرمل (${floors} دور)`} qty={`${fm(totalSand)} م³`} price={fm(cv(n(fmat[3]?.price || '0')))} total={fm(cv(totalSand * n(fmat[3]?.price || '0')))} />
             <Tr4 label={`الركام (${floors} دور)`} qty={`${fm(totalAggregate)} م³`} price={fm(cv(n(fmat[4]?.price || '0')))} total={fm(cv(totalAggregate * n(fmat[4]?.price || '0')))} />
             <Tr4 label={`الرخام (${floors} دور)`} qty={`${fm(totalMarbleArea)} م²`} price={fm(cv(n(fmat[1]?.price || '0')))} total={fm(cv(totalMarbleArea * n(fmat[1]?.price || '0')))} />
-            <Tr4 label={`البلاط (${floors} دور)`} qty={`${fm(Math.ceil(n(finishes?.tile?.floor) * floors))} م²`} price={fm(cv(n(fmat[8]?.price || '0')))} total={fm(cv(Math.ceil(n(finishes?.tile?.floor) * floors) * n(fmat[8]?.price || '0')))} />
+            {/* ✅ البلاط: إجمالي (أرضيات + جدران) */}
+            <Tr4 label={`البلاط - إجمالي (${floors} دور)`} qty={`${fm(totalTileArea)} م²`} price={fm(cv(n(fmat[8]?.price || '0')))} total={fm(cv(totalTileArea * n(fmat[8]?.price || '0')))} />
+            {/* ✅ بلاط البسطة */}
+            {landingTileArea > 0 && (
+              <Tr4 label={`بلاط البسطة (${floors} دور)`} qty={`${fm(landingTileArea)} م²`} price={fm(cv(n(fmat[8]?.price || '0')))} total={fm(cv(landingTileArea * n(fmat[8]?.price || '0')))} />
+            )}
+            {/* ✅ بلاط الدرج */}
+            {stepTileCount > 0 && (
+              <Tr4 label={`بلاط الدرج (${floors} دور)`} qty={`${fm(stepTileCount)} درجة`} price={fm(cv(n(fmat[9]?.price || '0')))} total={fm(cv(stepTileCount * n(fmat[9]?.price || '0')))} />
+            )}
             <Tr4 label={`المعجون (${floors} دور)`} qty={`${fm(totalPutty)} كجم`} price={fm(cv(n(fmat[5]?.price || '0')))} total={fm(cv(totalPutty * n(fmat[5]?.price || '0')))} />
             <Tr4 label={`البرايمر (${floors} دور)`} qty={`${fm(totalPrimer)} كجم`} price={fm(cv(n(fmat[6]?.price || '0')))} total={fm(cv(totalPrimer * n(fmat[6]?.price || '0')))} />
             <Tr4 label={`الطلاء (${floors} دور)`} qty={`${fm(totalPaint)} كجم`} price={fm(cv(n(fmat[7]?.price || '0')))} total={fm(cv(totalPaint * n(fmat[7]?.price || '0')))} />
@@ -115,11 +155,24 @@ export const SummaryTables2 = ({ data, o, setO, cur, cv, floors, hasMarble = fal
             <Tr4 label={`التلييس (${floors} دور)`} qty={`${fmt(totalPlasterLaborFloors)} م²`} price={fm(cv(n(flab[2]?.price || '0')))} total={fm(cv(totalPlasterLaborFloors * n(flab[2]?.price || '0')))} />
             <Tr4 label={`الطلاء (${floors} دور)`} qty={`${fmt(totalPaintLaborFloors)} م²`} price={fm(cv(n(flab[3]?.price || '0')))} total={fm(cv(totalPaintLaborFloors * n(flab[3]?.price || '0')))} />
             <Tr4 label={`البلاط (${floors} دور)`} qty={`${fmt(totalTileLaborFloors)} م²`} price={fm(cv(n(flab[4]?.price || '0')))} total={fm(cv(totalTileLaborFloors * n(flab[4]?.price || '0')))} />
+            {/* ✅ نقاط الكهرباء والسباكة في عمالة التشطيبات */}
+            {electricalPoints > 0 && (
+              <Tr4 label={`عمالة الكهرباء - ${electricalPoints} نقطة (${floors} دور)`} qty={`${fm(electricalPoints)} نقطة`} price={fm(cv(electricalLaborPrice))} total={fm(cv(electricalLaborCost))} />
+            )}
+            {plumbingPoints > 0 && (
+              <Tr4 label={`عمالة السباكة - ${plumbingPoints} نقطة (${floors} دور)`} qty={`${fm(plumbingPoints)} نقطة`} price={fm(cv(plumbingLaborPrice))} total={fm(cv(plumbingLaborCost))} />
+            )}
             <tr><td style={S.td} colSpan={4}><strong>🔧 تكاليف إضافية</strong></td></tr>
             <Tr4 label={`سباكة الحمامات (${floors} دور)`} qty={`${fm(Math.ceil(n(finishes?.extras?.bathrooms) * floors))} حمام`} price={fm(cv(n(fext[0]?.price || '0')))} total={fm(cv(Math.ceil(n(finishes?.extras?.bathrooms) * floors) * n(fext[0]?.price || '0')))} />
             <Tr4 label={`سباكة المطابخ (${floors} دور)`} qty={`${fm(Math.ceil(n(finishes?.extras?.kitchens) * floors))} مطبخ`} price={fm(cv(n(fext[1]?.price || '0')))} total={fm(cv(Math.ceil(n(finishes?.extras?.kitchens) * floors) * n(fext[1]?.price || '0')))} />
-            <Tr4 label={`النوافذ (${floors} دور)`} qty={`${fm(totalWindows)} نافذة`} price={fm(cv(n(doorsAndWindows[1]?.price || '0')))} total={fm(cv(totalWindows * n(doorsAndWindows[1]?.price || '0')))} />
-            <Tr4 label={`الأبواب (${floors} دور)`} qty={`${fm(totalDoors)} باب`} price={fm(cv(n(doorsAndWindows[2]?.price || '0')))} total={fm(cv(totalDoors * n(doorsAndWindows[2]?.price || '0')))} />
+            {/* ✅ مواد الكهرباء بالمتر المربع */}
+            {electricalMaterialsPrice > 0 && (
+              <Tr4 label={`مواد الكهرباء (${floors} دور)`} qty={`${fm(Math.ceil(buildingArea * floors))} م²`} price={fm(cv(electricalMaterialsPrice))} total={fm(cv(electricalMaterialsCost))} />
+            )}
+            {/* ✅ النوافذ بالمتر المربع */}
+            <Tr4 label={`النوافذ (${floors} دور)`} qty={`${fmt(totalWindowsArea)} م²`} price={fm(cv(n(doorsAndWindows[1]?.price || '0')))} total={fm(cv(totalWindowsArea * n(doorsAndWindows[1]?.price || '0')))} />
+            {/* ✅ الأبواب بالمتر المربع */}
+            <Tr4 label={`الأبواب (${floors} دور)`} qty={`${fmt(totalDoorsArea)} م²`} price={fm(cv(n(doorsAndWindows[2]?.price || '0')))} total={fm(cv(totalDoorsArea * n(doorsAndWindows[2]?.price || '0')))} />
             <tr style={S.total}><td style={S.td} colSpan={3}>إجمالي التشطيبات</td><td style={S.td}>{fm(cv((fmCost + flCost + feCost)))} {cur}</td></tr>
           </tbody>
         </table>
@@ -166,11 +219,12 @@ export const SummaryTables2 = ({ data, o, setO, cur, cv, floors, hasMarble = fal
           </div>
         </div>
 
-        {/* الخطوط التي تمثل النسب المئوية */}
         <div style={{ marginTop: '12px' }}>
           {[
+            { label: 'نسبة الأعمال التمهيدية', val: prelimPercent, color: '#FFC107' },
             { label: 'نسبة تكلفة الحديد', val: steelPercent, color: '#f44336' },
             { label: 'نسبة تكلفة الخرسانة', val: concretePercent, color: '#2196F3' },
+            { label: 'نسبة البلوك الهوردي', val: blocksPercent, color: '#607D8B' },
             { label: 'نسبة أجور المقاول', val: laborPercent, color: '#4CAF50' },
             { label: 'نسبة التشطيبات', val: finishesPercent, color: '#8B5CF6' },
           ].map((r, i) => (
