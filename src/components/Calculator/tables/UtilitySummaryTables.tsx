@@ -35,28 +35,26 @@ export const UtilitySummaryTables: React.FC<Props> = ({ results, hasMarble, elec
     e.target.value = String(num);
   };
 
-  // ✅ القيم المصححة من النتائج
   const correctedTileTotalArea = results.correctedTileTotalArea;
   const correctedTileCement = results.correctedTileCement;
   const correctedTileSand = results.correctedTileSand;
-  const correctedPlasterArea = results.correctedPlasterArea;
   const correctedPlasterCement = results.correctedPlasterCement;
   const correctedPlasterSand = results.correctedPlasterSand;
-  const correctedPaintTotal = results.correctedPaintTotal;
-  const correctedPutty = Math.ceil(correctedPaintTotal * 0.8);
-  const correctedPrimer = Math.ceil(correctedPaintTotal / 8);
-  const correctedPaint = Math.ceil(correctedPaintTotal / 8);
   const marbleArea = hasMarble ? results.marbleArea : 0;
   const marbleCement = hasMarble ? results.marbleCement : 0;
   const marbleSand = hasMarble ? results.marbleSand : 0;
   const marbleAggregate = hasMarble ? results.marbleAggregate : 0;
 
+  const landingTileArea = results.landingTileArea || 0;
+  const stepTileCount = results.stepTileCount || 0;
+
   const totalBlocks = Math.ceil(results.exteriorBlocks + results.interiorBlocks);
   const totalCement = Math.ceil(results.exteriorBlockCement + results.interiorBlockCement + correctedPlasterCement + correctedTileCement + marbleCement);
   const totalSand = Math.ceil(results.exteriorBlockSand + results.interiorBlockSand + correctedPlasterSand + correctedTileSand + marbleSand);
   const totalAggregate = marbleAggregate;
-  const totalDoors = results.doorGroups.reduce((s, g) => s + g.count, 0);
-  const totalWindows = results.windowGroups.reduce((s, g) => s + g.count, 0);
+
+  const totalDoorsArea = results.doorGroups.reduce((s, g) => s + g.totalArea, 0);
+  const totalWindowsArea = results.windowGroups.reduce((s, g) => s + g.totalArea, 0);
 
   return (<>
     <div style={cardStyle}>
@@ -79,12 +77,18 @@ export const UtilitySummaryTables: React.FC<Props> = ({ results, hasMarble, elec
           <tbody>
             <tr><td style={tdStyle}>إجمالي البلوك</td><td style={tdStyle}>{totalBlocks}</td><td style={tdStyle}>بلوكة</td></tr>
             <tr><td style={tdStyle}>إجمالي البلاط</td><td style={tdStyle}>{Math.ceil(correctedTileTotalArea)}</td><td style={tdStyle}>م²</td></tr>
+            {landingTileArea > 0 && (
+              <tr><td style={tdStyle}>إجمالي بلاط البسطة</td><td style={tdStyle}>{Math.ceil(landingTileArea)}</td><td style={tdStyle}>م²</td></tr>
+            )}
+            {stepTileCount > 0 && (
+              <tr><td style={tdStyle}>إجمالي بلاط الدرج</td><td style={tdStyle}>{stepTileCount}</td><td style={tdStyle}>درجة</td></tr>
+            )}
             <tr><td style={tdStyle}>إجمالي الأسمنت</td><td style={tdStyle}>{totalCement}</td><td style={tdStyle}>كيس</td></tr>
             <tr><td style={tdStyle}>إجمالي الرمل</td><td style={tdStyle}>{totalSand}</td><td style={tdStyle}>م³</td></tr>
             <tr><td style={tdStyle}>إجمالي الركام</td><td style={tdStyle}>{totalAggregate}</td><td style={tdStyle}>م³</td></tr>
             {hasMarble && (<tr><td style={tdStyle}>إجمالي الرخام</td><td style={tdStyle}>{Math.ceil(marbleArea)}</td><td style={tdStyle}>م²</td></tr>)}
-            <tr><td style={tdStyle}>إجمالي الأبواب</td><td style={tdStyle}>{totalDoors}</td><td style={tdStyle}>باب</td></tr>
-            <tr><td style={tdStyle}>إجمالي النوافذ</td><td style={tdStyle}>{totalWindows}</td><td style={tdStyle}>نافذة</td></tr>
+            <tr><td style={tdStyle}>إجمالي الأبواب</td><td style={tdStyle}>{Math.ceil(totalDoorsArea * 100) / 100}</td><td style={tdStyle}>م²</td></tr>
+            <tr><td style={tdStyle}>إجمالي النوافذ</td><td style={tdStyle}>{Math.ceil(totalWindowsArea * 100) / 100}</td><td style={tdStyle}>م²</td></tr>
           </tbody>
         </table>
       </div>
