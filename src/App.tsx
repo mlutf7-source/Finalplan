@@ -217,34 +217,50 @@ export default function App() {
   const sidebar = isSidebarOpen && (
     <>
       <div onClick={() => setIsSidebarOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.3)', zIndex: 1000 }} />
-      <div onClick={e => e.stopPropagation()} style={{ position: 'fixed', top: 0, right: 0, width: '33vw', maxWidth: 400, height: '100%', background: '#fff', boxShadow: '-2px 0 10px rgba(0,0,0,0.1)', zIndex: 1001, display: 'flex', flexDirection: 'column', padding: 20, gap: 15 }}>
-        <h3 style={{ margin: 0, color: '#003366' }}>إدارة المشاريع</h3>
-        <button onClick={newProject} style={btnStyles.btn}>➕ مشروع جديد</button>
-        <button onClick={save} style={btnStyles.btnPrimary}>💾 حفظ في الهاتف</button>
-        <label style={btnStyles.btn}>📂 استيراد من الهاتف
-          <input type="file" accept=".json" style={{ display: 'none' }} onChange={importProject} />
-        </label>
-        <select onChange={e => e.target.value && load(e.target.value)} style={{ padding: 8, borderRadius: 6, border: '1px solid #ccc' }}>
-          <option value="">📂 اختر مشروعاً</option>
-          {state.projectManager.projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-        </select>
-        {state.projectManager.currentProjectId && <button onClick={() => del(state.projectManager.currentProjectId!)} style={btnStyles.btnDanger}>🗑️ حذف المشروع المحدد</button>}
-        <div style={{ borderTop: '1px solid #eee', paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <button onClick={toggleClip} style={{ padding: 10, borderRadius: 6, border: '1px solid #f00', background: state.clipFrame ? '#f00' : '#fff', color: state.clipFrame ? '#fff' : '#f00' }}>{state.clipFrame ? '🗑️ إزالة الكليشة' : '📐 إضافة الكليشة (A3)'}</button>
-          <button onClick={pdf} style={btnStyles.btn}>📄 PDF المسقط</button>
-          <label style={btnStyles.btn}>🖼️ استيراد مخطط
-            <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleImageUpload} />
-          </label>
-          {state.planImage && (
-            <>
-              <button onClick={handleScaleImage} style={btnStyles.btn}>📏 ضبط مقياس الرسم</button>
-              <button onClick={handleLockImage} style={btnStyles.btn}>{state.planImage.locked ? '🔓 فك قفل الصورة' : '🔒 قفل الصورة'}</button>
-              <button onClick={handleDeleteImage} style={btnStyles.btnDanger}>🗑️ حذف الصورة</button>
-            </>
-          )}
-        </div>
-        <button onClick={() => setIsSidebarOpen(false)} style={{ marginTop: 'auto', ...btnStyles.btn }}>✖ إغلاق</button>
-      </div>
+      <div onClick={e => e.stopPropagation()} style={{ 
+  position: 'fixed', 
+  top: 0, 
+  right: 0, 
+  width: '33vw', 
+  maxWidth: 400, 
+  height: '100%', 
+  background: '#fff', 
+  boxShadow: '-2px 0 10px rgba(0,0,0,0.1)', 
+  zIndex: 1001, 
+  display: 'flex', 
+  flexDirection: 'column', 
+  padding: 20, 
+  gap: 15,
+  overflowY: 'auto',
+  WebkitOverflowScrolling: 'touch',
+}}>
+  <h3 style={{ margin: 0, color: '#003366' }}>إدارة المشاريع</h3>
+  <button onClick={newProject} style={btnStyles.btn}>➕ مشروع جديد</button>
+  <button onClick={save} style={btnStyles.btnPrimary}>💾 حفظ في الهاتف</button>
+  <label style={btnStyles.btn}>📂 استيراد من الهاتف
+    <input type="file" accept=".json" style={{ display: 'none' }} onChange={importProject} />
+  </label>
+  <select onChange={e => e.target.value && load(e.target.value)} style={{ padding: 8, borderRadius: 6, border: '1px solid #ccc' }}>
+    <option value="">📂 اختر مشروعاً</option>
+    {state.projectManager.projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+  </select>
+  {state.projectManager.currentProjectId && <button onClick={() => del(state.projectManager.currentProjectId!)} style={btnStyles.btnDanger}>🗑️ حذف المشروع المحدد</button>}
+  <div style={{ borderTop: '1px solid #eee', paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+    <button onClick={toggleClip} style={{ padding: 10, borderRadius: 6, border: '1px solid #f00', background: state.clipFrame ? '#f00' : '#fff', color: state.clipFrame ? '#fff' : '#f00' }}>{state.clipFrame ? '🗑️ إزالة الكليشة' : '📐 إضافة الكليشة (A3)'}</button>
+    <button onClick={pdf} style={btnStyles.btn}>📄 PDF المسقط</button>
+    <label style={btnStyles.btn}>🖼️ استيراد مخطط
+      <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleImageUpload} />
+    </label>
+    {state.planImage && (
+      <>
+        <button onClick={handleScaleImage} style={btnStyles.btn}>📏 ضبط مقياس الرسم</button>
+        <button onClick={handleLockImage} style={btnStyles.btn}>{state.planImage.locked ? '🔓 فك قفل الصورة' : '🔒 قفل الصورة'}</button>
+        <button onClick={handleDeleteImage} style={btnStyles.btnDanger}>🗑️ حذف الصورة</button>
+      </>
+    )}
+  </div>
+  <button onClick={() => setIsSidebarOpen(false)} style={{ marginTop: 20, ...btnStyles.btn }}>✖ إغلاق</button>
+</div>
     </>
   );
 
