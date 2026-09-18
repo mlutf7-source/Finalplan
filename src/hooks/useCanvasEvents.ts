@@ -70,14 +70,34 @@ export function useCanvasEvents({
     }
     const pt = getPoint(e); if (!pt) return;
 
-    if (planImage && !planImage.locked && onPlanImageChange && mode === 'view') {
-      const p1 = { x: planImage.x, y: planImage.y };
-      const p2 = { x: planImage.x + planImage.width, y: planImage.y + planImage.height };
-      if (pt.world.x >= p1.x && pt.world.x <= p2.x && pt.world.y >= p1.y && pt.world.y <= p2.y) {
-        if (onImageSelect) onImageSelect(planImage.id || 'image-1');
-        downPointRef.current = { world: pt.world, type: 'dragImage' }; return;
-      }
+if (planImage && mode === 'view') {
+  // ✅ فحص النقر على الصورة (مع الأخذ في الاعتبار الدوران)
+  const rotation = planImage.rotation || 0;
+  const cx = planImage.x + planImage.width / 2;
+  const cy = planImage.y + planImage.height / 2;
+  // تحويل نقطة النقر إلى إحداثيات الصورة المحلية (عكس الدوران)
+  const dx = pt.world.x - cx;
+  const dy = pt.world.y - cy;
+  const cos = Math.cos(-rotation);
+  const sin = Math.sin(-rotation);
+  const localX = dx * cos - dy * sin + planImage.width / 2;
+  const localY = dx * sin + dy * cos + planImage.height / 2;
+  const isInside = localX >= 0 && localX <= planImage.width && localY >= 0 && localY <= planImage.height;
+
+  if (isInside) {
+    if (onImageSelect) onImageSelect(planImage.id || 'image-1');
+    // ✅ إذا كانت الصورة غير مقفلة، اسمح بالسحب
+    if (!planImage.locked && onPlanImageChange) {
+      downPointRef.current = { world: pt.world, type: 'dragImage' };
     }
+    return;
+  } else {
+    // ✅ إذا نقر خارج الصورة، إلغاء التحديد
+    if (planImage.isSelected && onPlanImageChange) {
+      onPlanImageChange({ ...planImage, isSelected: false });
+    }
+  }
+}
     if (setup.clipFrame && clipFrameEdit.hitTest(pt.world, setup.clipFrame)) {
       const dragMode = clipFrameEdit.detectMode(pt.world, setup.clipFrame);
       clipFrameEdit.select(setup.clipFrame.id, pt.world, dragMode);
