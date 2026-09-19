@@ -207,10 +207,10 @@ export const QuantitiesPanel: React.FC<Props> = ({
       </ErrorBoundary>
 
       <ErrorBoundary>
-        <div style={{ display: activeTab === 'summary' ? 'block' : 'none' }}>
-          <SummaryPage walls={walls} />
-        </div>
-      </ErrorBoundary>
+  <div style={{ display: activeTab === 'summary' ? 'block' : 'none' }}>
+    {activeTab === 'summary' && <SummaryPage walls={walls} />}
+  </div>
+</ErrorBoundary>
     </div>
   );
 
