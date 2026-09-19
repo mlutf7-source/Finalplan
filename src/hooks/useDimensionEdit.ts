@@ -112,23 +112,40 @@ export function useDimensionEdit(
   const delta = dx * normal.x + dy * normal.y;
   const newOffset = dim.offset + delta;
 
-  // ✅ Snap على إزاحة أقرب بعد موازٍ
-  const SNAP_OFFSET = 0.15;
+  // ✅ Snap ذكي: مقارنة موقع الخط الفعلي مع خطوط الأبعاد الموازية
+  const SNAP_TOLERANCE = 0.08;
   let snappedOffset = newOffset;
-  let bestDist = SNAP_OFFSET;
+
+  const isHorizontal = Math.abs(Math.abs(angle) - Math.PI / 2) > Math.PI / 4;
+
+  // موضع خط البعد الحالي
+  const currentLinePos = isHorizontal
+    ? dim.start.y + normal.y * newOffset
+    : dim.start.x + normal.x * newOffset;
+
+  let bestDist = SNAP_TOLERANCE;
   for (const other of dimensions) {
     if (other.id === dim.id) continue;
     const otherAngle = getAngle(other.start, other.end);
-    const angleDiff = Math.abs(otherAngle - angle);
-    const isParallel = angleDiff < 0.01 || Math.abs(angleDiff - Math.PI) < 0.01;
-    if (!isParallel) continue;
-    const d = Math.abs(other.offset - newOffset);
-    if (d < bestDist) { bestDist = d; snappedOffset = other.offset; }
+    const isOtherHorizontal = Math.abs(Math.abs(otherAngle) - Math.PI / 2) > Math.PI / 4;
+    if (isOtherHorizontal !== isHorizontal) continue;
+
+    const otherNormal = { x: -Math.sin(otherAngle), y: Math.cos(otherAngle) };
+    const otherLinePos = isOtherHorizontal
+      ? other.start.y + otherNormal.y * other.offset
+      : other.start.x + otherNormal.x * other.offset;
+
+    const d = Math.abs(currentLinePos - otherLinePos);
+    if (d < bestDist) {
+      bestDist = d;
+      snappedOffset = isHorizontal
+        ? (otherLinePos - dim.start.y) / (normal.y || 1)
+        : (otherLinePos - dim.start.x) / (normal.x || 1);
+    }
   }
 
   return { ...dim, offset: snappedOffset };
       }
-
       // === تمديد البداية أو النهاية ===
       const baseAngle = getAngle(dim.start, dim.end);
       const isHorizontal =
