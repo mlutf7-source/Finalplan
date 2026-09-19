@@ -15,6 +15,7 @@ interface Props {
   axes?: Axis[];
   selectedAxisId?: string | null;
   showGrid?: boolean;
+  axisBubbleSize?: number;
 }
 
 const COLORS = {
@@ -45,6 +46,7 @@ export const CanvasRenderer: React.FC<Props> = React.memo(({
   axes = [],
   selectedAxisId = null,
   showGrid = true,
+  axisBubbleSize = 9,
 }) => {
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
 
@@ -77,7 +79,7 @@ export const CanvasRenderer: React.FC<Props> = React.memo(({
   const drawAxes = (ctx: CanvasRenderingContext2D) => {
     if (!axes || axes.length === 0) return;
     // ✅ حجم ثابت على الشاشة (لا يتأثر بالزوم)
-const bubbleRadius = 9;
+const bubbleRadius = axisBubbleSize;
 const lineWidth = 1;
 const fontSize = 9;
     axes.forEach(axis => {
@@ -219,6 +221,6 @@ if (planImage && planImage.url) {
       ctx.fillText(distance(tempStart, tempEnd).toFixed(2), mid.x + 15, mid.y - 15);
     }
   }, [walls, view, width, height, selectedId, tempStart, tempEnd, showGrid, scale, planImage, axes, selectedAxisId]);
-
+}, [walls, view, width, height, selectedId, tempStart, tempEnd, showGrid, scale, planImage, axes, selectedAxisId, axisBubbleSize]);
   return <canvas ref={canvasRef} width={width * scale} height={height * scale} style={{ display: 'block' }} />;
 });
