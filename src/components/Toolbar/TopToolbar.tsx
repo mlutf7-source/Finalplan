@@ -264,13 +264,13 @@ axisBubbleSize, onAxisBubbleSizeChange,
     onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
     onBlur={e => {
       const num = safeParse(e.target.value, axisBubbleSize);
-      const clamped = Math.max(7, Math.min(30, num));
+      const clamped = Math.max(5, Math.min(30, num));
       onAxisBubbleSizeChange(clamped);
       e.target.value = String(clamped);
     }}
     style={{ width: 60, padding: '3px', borderRadius: 4, border: '1px solid #ccc', textAlign: 'left' }}
   />
-  <span style={{ fontSize: 11, color: '#888' }}>(7-30)</span>
+  <span style={{ fontSize: 11, color: '#888' }}>(5-30)</span>
 </div>
             </div>
           )}
