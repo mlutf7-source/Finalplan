@@ -28,6 +28,13 @@ interface Props {
   axes: Axis[];
   showGrid: boolean;
   onToggleGrid: () => void;
+  onDeleteAllDimensions: () => void;
+globalTextSize: number;
+onGlobalTextSizeChange: (v: number) => void;
+globalFontFamily: string;
+onGlobalFontFamilyChange: (v: string) => void;
+axisBubbleSize: number;
+onAxisBubbleSizeChange: (v: number) => void;
 }
 
 const btnBase: React.CSSProperties = {
@@ -50,7 +57,10 @@ export const TopToolbar: React.FC<Props> = ({
   layers, onToggleLayer, onToggleAllLayers, allUnlocked,
   dimensionFontSize, onDimensionFontSizeChange, onAddNorthArrow,
   onAddAxes, onAddAxesFromWalls, onDeleteAllAxes, axes,
-  showGrid, onToggleGrid,
+  showGrid, onToggleGrid,onDeleteAllDimensions,
+globalTextSize, onGlobalTextSizeChange,
+globalFontFamily, onGlobalFontFamilyChange,
+axisBubbleSize, onAxisBubbleSizeChange,
 }) => {
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [showAxisDialog, setShowAxisDialog] = useState(false);
@@ -178,6 +188,44 @@ export const TopToolbar: React.FC<Props> = ({
                 />
               </div>
               <div onClick={() => { onAddNorthArrow(); setOpenMenu(null); }} style={itemStyle}>🧭 سهم الشمال</div>
+              <div style={{ padding: '6px 8px', display: 'flex', alignItems: 'center', gap: 6 }}>
+  <span style={{ fontSize: 14 }}>حجم النصوص:</span>
+  <input
+    type="text"
+    inputMode="decimal"
+    dir="ltr"
+    key={`text-size-${globalTextSize}`}
+    defaultValue={String(globalTextSize)}
+    onFocus={e => e.target.select()}
+    onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+    onBlur={e => {
+      const num = safeParse(e.target.value, globalTextSize);
+      if (num > 0) onGlobalTextSizeChange(num);
+      e.target.value = String(num);
+    }}
+    style={{ width: 60, padding: '3px', borderRadius: 4, border: '1px solid #ccc', textAlign: 'left' }}
+  />
+</div>
+
+<div style={{ padding: '6px 8px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+  <span style={{ fontSize: 14 }}>نوع الخط:</span>
+  <select
+    value={globalFontFamily}
+    onChange={e => onGlobalFontFamilyChange(e.target.value)}
+    style={{ padding: '4px', borderRadius: 4, border: '1px solid #ccc', fontSize: 13, fontFamily: 'Cairo, sans-serif' }}
+  >
+    <option value={'"Traditional Arabic", "Noto Naskh Arabic", serif'}>Traditional Arabic</option>
+    <option value={'"Cairo", sans-serif'}>Cairo</option>
+    <option value={'"Tajawal", sans-serif'}>Tajawal</option>
+    <option value={'"Amiri", serif'}>Amiri</option>
+    <option value={'"Arial", sans-serif'}>Arial</option>
+    <option value={'"Times New Roman", serif'}>Times New Roman</option>
+  </select>
+</div>
+
+<div onClick={() => { onDeleteAllDimensions(); setOpenMenu(null); }} style={{ ...itemStyle, color: '#dc3545' }}>
+  🗑️ حذف جميع الأبعاد
+</div>
               {/* ✅ زر إخفاء/إظهار الشبكة */}
               <div onClick={() => { onToggleGrid(); setOpenMenu(null); }} style={itemStyle}>
                 {showGrid ? '🔲 إخفاء الشبكة' : '🔳 إظهار الشبكة'}
@@ -204,6 +252,26 @@ export const TopToolbar: React.FC<Props> = ({
               <div onClick={() => { setShowAxisDialog(true); setOpenMenu(null); }} style={itemStyle}>📐 المحاور يدوي</div>
               <div onClick={() => { onAddAxesFromWalls(); setOpenMenu(null); }} style={itemStyle}>🔄 المحاور تلقائي</div>
               <div onClick={() => { onDeleteAllAxes(); setOpenMenu(null); }} style={itemStyle}>🗑️ حذف المحاور</div>
+              <div style={{ padding: '6px 8px', display: 'flex', alignItems: 'center', gap: 6, borderTop: '1px solid #eee', marginTop: 4 }}>
+  <span style={{ fontSize: 14 }}>حجم الفقاعات:</span>
+  <input
+    type="text"
+    inputMode="decimal"
+    dir="ltr"
+    key={`bubble-size-${axisBubbleSize}`}
+    defaultValue={String(axisBubbleSize)}
+    onFocus={e => e.target.select()}
+    onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+    onBlur={e => {
+      const num = safeParse(e.target.value, axisBubbleSize);
+      const clamped = Math.max(7, Math.min(30, num));
+      onAxisBubbleSizeChange(clamped);
+      e.target.value = String(clamped);
+    }}
+    style={{ width: 60, padding: '3px', borderRadius: 4, border: '1px solid #ccc', textAlign: 'left' }}
+  />
+  <span style={{ fontSize: 11, color: '#888' }}>(7-30)</span>
+</div>
             </div>
           )}
         </div>
