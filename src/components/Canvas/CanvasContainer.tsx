@@ -63,6 +63,7 @@ interface Props {
   onDeleteAxis: (id: string) => void;
   showGrid: boolean;
   axisBubbleSize: number;
+  onCopyAxis: (id: string) => void;
 }
 
 export const CanvasContainer: React.FC<Props> = (props) => {
@@ -181,6 +182,7 @@ useEffect(() => {
           onDeleteAxis={() => { if (setup.axisEdit.selectedAxisId) props.onDeleteAxis(setup.axisEdit.selectedAxisId); setup.axisEdit.deselect(); }}
           onDeselectAll={deselectAll}
           selectedType={selectedType === 'northArrow' || selectedType === 'clipFrame' ? null : selectedType}
+          onCopyAxis={() => { if (setup.axisEdit.selectedAxisId) props.onCopyAxis(setup.axisEdit.selectedAxisId); }}
         />
         <div ref={containerRef} data-floor-plan-stage="true" data-zoom={view.zoom} data-offset-x={view.offsetX} data-offset-y={view.offsetY} style={{ width: '100%', height: 450, touchAction: 'none', overflow: 'hidden', position: 'relative', cursor: toolActive ? 'crosshair' : props.mode === 'edit' ? 'move' : 'grab' }} onPointerDown={events.onPointerDown} onPointerMove={events.onPointerMove} onPointerUp={events.onPointerUp} onPointerCancel={events.onPointerUp}>
           <CanvasLayers
