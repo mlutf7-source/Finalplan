@@ -78,10 +78,9 @@ export const CanvasRenderer: React.FC<Props> = React.memo(({
 
   const drawAxes = (ctx: CanvasRenderingContext2D) => {
     if (!axes || axes.length === 0) return;
-    // ✅ حجم ثابت على الشاشة (لا يتأثر بالزوم)
-const bubbleRadius = axisBubbleSize;
-const lineWidth = 1;
-const fontSize = 9;
+    const bubbleRadius = axisBubbleSize;
+    const lineWidth = 1;
+    const fontSize = 9;
     axes.forEach(axis => {
       const selected = axis.id === selectedAxisId;
       const color = selected ? COLORS.axisSelected : COLORS.axis;
@@ -169,37 +168,37 @@ const fontSize = 9;
     if (showGrid) drawGrid(ctx);
 
     drawAxes(ctx);
-if (planImage && planImage.url) {
-  const img = new Image();
-  img.src = planImage.url;
-  img.onload = () => {
-    ctx.save();
-    ctx.globalAlpha = planImage.opacity;
 
-    const rotation = planImage.rotation || 0;
-    const centerX = planImage.x + planImage.width / 2;
-    const centerY = planImage.y + planImage.height / 2;
-    const centerScreen = toScreen({ x: centerX, y: centerY });
-    const p1 = toScreen({ x: planImage.x, y: planImage.y });
-    const p2 = toScreen({ x: planImage.x + planImage.width, y: planImage.y + planImage.height });
-    const drawWidth = p2.x - p1.x;
-    const drawHeight = p2.y - p1.y;
+    if (planImage && planImage.url) {
+      const img = new Image();
+      img.src = planImage.url;
+      img.onload = () => {
+        ctx.save();
+        ctx.globalAlpha = planImage.opacity;
 
-    // ✅ رسم بدوران حول مركز الصورة
-    ctx.translate(centerScreen.x, centerScreen.y);
-    ctx.rotate(rotation);
-    ctx.drawImage(img, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
+        const rotation = planImage.rotation || 0;
+        const centerX = planImage.x + planImage.width / 2;
+        const centerY = planImage.y + planImage.height / 2;
+        const centerScreen = toScreen({ x: centerX, y: centerY });
+        const p1 = toScreen({ x: planImage.x, y: planImage.y });
+        const p2 = toScreen({ x: planImage.x + planImage.width, y: planImage.y + planImage.height });
+        const drawWidth = p2.x - p1.x;
+        const drawHeight = p2.y - p1.y;
 
-    if (planImage.isSelected) {
-      ctx.setLineDash([6, 4]);
-      ctx.strokeStyle = '#00aaff';
-      ctx.lineWidth = 2 / scale;
-      ctx.strokeRect(-drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
-      ctx.setLineDash([]);
+        ctx.translate(centerScreen.x, centerScreen.y);
+        ctx.rotate(rotation);
+        ctx.drawImage(img, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
+
+        if (planImage.isSelected) {
+          ctx.setLineDash([6, 4]);
+          ctx.strokeStyle = '#00aaff';
+          ctx.lineWidth = 2 / scale;
+          ctx.strokeRect(-drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
+          ctx.setLineDash([]);
+        }
+        ctx.restore();
+      };
     }
-    ctx.restore();
-  };
-}
 
     walls.forEach(w => drawWall(ctx, w, w.id === selectedId));
 
@@ -220,7 +219,7 @@ if (planImage && planImage.url) {
       ctx.textAlign = 'center';
       ctx.fillText(distance(tempStart, tempEnd).toFixed(2), mid.x + 15, mid.y - 15);
     }
-  }, [walls, view, width, height, selectedId, tempStart, tempEnd, showGrid, scale, planImage, axes, selectedAxisId]);
-}, [walls, view, width, height, selectedId, tempStart, tempEnd, showGrid, scale, planImage, axes, selectedAxisId, axisBubbleSize]);
+  }, [walls, view, width, height, selectedId, tempStart, tempEnd, showGrid, scale, planImage, axes, selectedAxisId, axisBubbleSize]);
+
   return <canvas ref={canvasRef} width={width * scale} height={height * scale} style={{ display: 'block' }} />;
 });
