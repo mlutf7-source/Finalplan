@@ -54,6 +54,9 @@ const [mode, setMode] = useState<AppMode>('view');
 const [drawingType, setDrawingType] = useState<DrawingType>(null);
 const [dimensions, setDimensions] = useState<Dimension[]>([]);
 const [dimensionFontSize, setDimensionFontSize] = useState(40);
+  const [globalTextSize, setGlobalTextSize] = useState(0.5);
+const [globalFontFamily, setGlobalFontFamily] = useState('"Traditional Arabic", "Noto Naskh Arabic", serif');
+const [axisBubbleSize, setAxisBubbleSize] = useState(11);
 const [axes, setAxes] = useState<Axis[]>([]);
 const [layers, setLayers] = useState<LayersState>({ walls: true, dimensions: true, columns: true, windows: true, doors: true, texts: true, regions: true, stairs: true, northArrow: true, axes: true });
 const [showQuantities, setShowQuantities] = useState(false);
@@ -80,6 +83,33 @@ const handleAddAllDimensions = useCallback(() => {
   commit();
   setDimensions(prev => [...prev, ...wallDims, ...axisDims]);
 }, [walls, axes, commit]);
+  // ✅ تغيير حجم جميع النصوص
+const handleApplyGlobalTextSize = useCallback((size: number) => {
+  setGlobalTextSize(size);
+  commit();
+  const updated = textManager.texts.map(t => ({ ...t, fontSize: size }));
+  textManager.setAllTexts(updated);
+}, [commit, textManager]);
+
+// ✅ تغيير نوع خط جميع النصوص
+const handleApplyGlobalFontFamily = useCallback((fontFamily: string) => {
+  setGlobalFontFamily(fontFamily);
+  commit();
+  const updated = textManager.texts.map(t => ({ ...t, fontFamily }));
+  textManager.setAllTexts(updated);
+}, [commit, textManager]);
+
+// ✅ حذف جميع الأبعاد
+const handleDeleteAllDimensions = useCallback(() => {
+  if (dimensions.length === 0) {
+    alert('لا توجد أبعاد لحذفها');
+    return;
+  }
+  const confirmed = confirm(`هل تريد حذف جميع الأبعاد (${dimensions.length} بعد)؟`);
+  if (!confirmed) return;
+  commit();
+  setDimensions([]);
+}, [dimensions, commit]);
 const handlePlaceColumn = useCallback((pt: Point) => {
   commit();
   let snapped = { ...pt };
@@ -253,5 +283,10 @@ const handleDeleteAxis = useCallback((id: string) => {
   });
 }, [commit]);
 
-return { walls, setWalls, mode, setMode, drawingType, setDrawingType, dimensions, setDimensions, dimensionFontSize, setDimensionFontSize, layers, toggleLayer, toggleAllLayers, allUnlocked, setAllLayersLocked, showQuantities, setShowQuantities, activeTab, setActiveTab, elements, regionsManager, textManager, stairManager, results, history, future, handleUndo, handleRedo, handleWallsChange, handleDimensionsChange, handleAddDimension, handleAddAllDimensions, handlePlaceColumn, handlePlaceWindow, handlePlaceDoor, handlePlaceRegion, handleDeleteRegion, handleAddText, handleUpdateText, handleDeleteText, handleCopyText, handleUpdateColumn, handleUpdateWindow, handleUpdateDoor, handleDeleteColumn, handleDeleteWindow, handleDeleteDoor, handleAddStairAtPoint, handleUpdateStair, handleDeleteStair, handleAddNorthArrow, handleUpdateNorthArrow, handleCancelTool, toolsActive, projectManager, handleSaveProject, handleLoadProject, handleDeleteProject, handleNewProject, isDirty, currentProjectName, clipFrame, setClipFrame: handleSetClipFrame, view, setView, planImage, setPlanImage, axes, setAxes, handleAddAxes, handleUpdateAxis, handleDeleteAxis, handleAddAxesFromWalls, handleDeleteAllAxes };
+return { walls, setWalls, mode, setMode, drawingType, setDrawingType, dimensions, setDimensions, dimensionFontSize, setDimensionFontSize, layers, toggleLayer, toggleAllLayers, allUnlocked, setAllLayersLocked, showQuantities, setShowQuantities, activeTab, setActiveTab, elements, regionsManager, textManager, stairManager, results, history, future, handleUndo, handleRedo, handleWallsChange, handleDimensionsChange, handleAddDimension, handleAddAllDimensions, handlePlaceColumn, handlePlaceWindow, handlePlaceDoor, handlePlaceRegion, handleDeleteRegion, handleAddText, handleUpdateText, handleDeleteText, handleCopyText, handleUpdateColumn, handleUpdateWindow, handleUpdateDoor, handleDeleteColumn, handleDeleteWindow, handleDeleteDoor, handleAddStairAtPoint, handleUpdateStair, handleDeleteStair, handleAddNorthArrow, handleUpdateNorthArrow, handleCancelTool, toolsActive, projectManager, handleSaveProject, handleLoadProject, handleDeleteProject, handleNewProject, isDirty, currentProjectName, clipFrame, setClipFrame: handleSetClipFrame, view, setView, planImage, setPlanImage, axes, setAxes, handleAddAxes, handleUpdateAxis, handleDeleteAxis, handleAddAxesFromWalls, handleDeleteAllAxes, globalTextSize, setGlobalTextSize,
+globalFontFamily, setGlobalFontFamily,
+axisBubbleSize, setAxisBubbleSize,
+handleApplyGlobalTextSize,
+handleApplyGlobalFontFamily,
+handleDeleteAllDimensions };
 }
