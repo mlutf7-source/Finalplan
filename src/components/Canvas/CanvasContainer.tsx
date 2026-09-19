@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { CanvasLayers } from './CanvasLayers';
 import { CanvasSidebars } from './CanvasSidebars';
 import { CanvasZoomControls } from './CanvasZoomControls';
@@ -66,6 +66,18 @@ interface Props {
 
 export const CanvasContainer: React.FC<Props> = (props) => {
   const setup = useCanvasSetup(props);
+  // ✅ رفع الدقة الداخلية مؤقتاً عند تصدير PDF
+const [renderScale, setRenderScale] = useState(1);
+
+useEffect(() => {
+  const handler = (e: Event) => {
+    const detail = (e as CustomEvent<boolean>).detail;
+    // عند بدء التصدير (detail=false) → scale = 3، عند الانتهاء → 1
+    setRenderScale(detail === false ? 3 : 1);
+  };
+  window.addEventListener('pdf-export-grid', handler);
+  return () => window.removeEventListener('pdf-export-grid', handler);
+}, []);
 
   // ✅ دالة تحديد الصورة عند النقر عليها
   const onImageSelect = React.useCallback((_id: string | null) => {
@@ -198,6 +210,7 @@ export const CanvasContainer: React.FC<Props> = (props) => {
             axes={props.axes}
             selectedAxisId={setup.axisEdit.selectedAxisId}
             showGrid={props.showGrid}
+            scale={renderScale}  
           />
           {!toolActive && (<CanvasZoomControls onZoomIn={() => events.zoomAtPoint(size.w / 2, size.h / 2, 1.2)} onZoomOut={() => events.zoomAtPoint(size.w / 2, size.h / 2, 1 / 1.2)} onReset={reset} />)}
         </div>
