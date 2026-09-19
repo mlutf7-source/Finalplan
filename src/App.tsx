@@ -397,6 +397,7 @@ export default function App() {
       onUpdateAxis={state.handleUpdateAxis}
       onDeleteAxis={state.handleDeleteAxis}
       showGrid={showGrid}
+      axisBubbleSize={state.axisBubbleSize}
     />
   );
 
@@ -439,6 +440,13 @@ export default function App() {
       onDeleteAllAxes={state.handleDeleteAllAxes}
       showGrid={showGrid}
       onToggleGrid={() => setShowGrid(prev => !prev)}
+      onDeleteAllDimensions={state.handleDeleteAllDimensions}
+globalTextSize={state.globalTextSize}
+onGlobalTextSizeChange={state.handleApplyGlobalTextSize}
+globalFontFamily={state.globalFontFamily}
+onGlobalFontFamilyChange={state.handleApplyGlobalFontFamily}
+axisBubbleSize={state.axisBubbleSize}
+onAxisBubbleSizeChange={state.setAxisBubbleSize}
     />
   );
 
