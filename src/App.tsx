@@ -136,26 +136,29 @@ export default function App() {
 
   // ✅ زر الرجوع: إذا كان هناك تعديلات → نافذة تحذير مخصصة
   useEffect(() => {
-    let listenerHandle: { remove: () => Promise<void> } | null = null;
+  useEffect(() => {
+  let listenerHandle: { remove: () => Promise<void> } | null = null;
 
-    const setup = async () => {
-      listenerHandle = await CapApp.addListener('backButton', async () => {
-        if (isSidebarOpen) { setIsSidebarOpen(false); return; }
-        if (state.isDirty) {
-          setExitPromptVisible(true);
-        } else {
-          await CapApp.exitApp();
-        }
-      });
-    };
-    setup();
+  const setup = async () => {
+    listenerHandle = await CapApp.addListener('backButton', async () => {
+      // 1. إغلاق القائمة الجانبية
+      if (isSidebarOpen) { setIsSidebarOpen(false); return; }
 
-    return () => {
-      listenerHandle?.remove();
-      listenerHandle = null;
-    };
-  }, [isSidebarOpen, state.isDirty]);
+      // 2. إذا كان هناك تعديلات غير محفوظة → نافذة خروج مخصصة
+      if (state.isDirty) {
+        setExitPromptVisible(true);
+      } else {
+        await CapApp.exitApp();
+      }
+    });
+  };
+  setup();
 
+  return () => {
+    listenerHandle?.remove();
+    listenerHandle = null;
+  };
+}, [isSidebarOpen, state.isDirty]);
   // ✅ زر: حفظ وخروج
   const handleExitWithSave = async () => {
     setExitPromptVisible(false);
