@@ -24,6 +24,7 @@ interface Props {
   onDeleteAxis: () => void;
   onDeselectAll: () => void;
   selectedType: 'wall' | 'column' | 'window' | 'door' | 'dimension' | 'text' | 'region' | 'stair' | 'axis' | null;
+  onCopyAxis?: () => void;
 }
 
 const btnStyle: React.CSSProperties = {
@@ -55,6 +56,7 @@ export const CanvasSidebars: React.FC<Props> = React.memo(({
   onDeleteAxis,
   onDeselectAll,
   selectedType,
+  onCopyAxis,
 }) => {
   return (
     <>
@@ -123,8 +125,13 @@ export const CanvasSidebars: React.FC<Props> = React.memo(({
             <button onClick={onDeleteStair} title="حذف السلم" style={{ ...btnStyle, background: '#e44', color: '#fff' }}>🗑</button>
           )}
           {selectedType === 'axis' && (
-            <button onClick={onDeleteAxis} title="حذف المحور" style={{ ...btnStyle, background: '#e44', color: '#fff' }}>🗑</button>
-          )}
+  <>
+    {onCopyAxis && (
+      <button onClick={onCopyAxis} title="نسخ المحور" style={{ ...btnStyle, background: '#06f', color: '#fff' }}>📋</button>
+    )}
+    <button onClick={onDeleteAxis} title="حذف المحور" style={{ ...btnStyle, background: '#e44', color: '#fff' }}>🗑</button>
+  </>
+)}
 
           <button onClick={onDeselectAll} title="إلغاء التحديد" style={{ ...btnStyle, background: '#555', color: '#fff' }}>✖</button>
         </div>
