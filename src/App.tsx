@@ -401,6 +401,7 @@ export default function App() {
       onDeleteAxis={state.handleDeleteAxis}
       showGrid={showGrid}
       axisBubbleSize={state.axisBubbleSize}
+      onCopyAxis={state.handleCopyAxis}
     />
   );
 
