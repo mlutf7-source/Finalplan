@@ -107,10 +107,26 @@ export function useDimensionEdit(
 
       // === تحريك كامل (إزاحة) ===
       if (dragTypeRef.current === 'move') {
-        const angle = getAngle(dim.start, dim.end);
-        const normal = { x: -Math.sin(angle), y: Math.cos(angle) };
-        const delta = dx * normal.x + dy * normal.y;
-        return { ...dim, offset: dim.offset + delta };
+  const angle = getAngle(dim.start, dim.end);
+  const normal = { x: -Math.sin(angle), y: Math.cos(angle) };
+  const delta = dx * normal.x + dy * normal.y;
+  const newOffset = dim.offset + delta;
+
+  // ✅ Snap على إزاحة أقرب بعد موازٍ
+  const SNAP_OFFSET = 0.15;
+  let snappedOffset = newOffset;
+  let bestDist = SNAP_OFFSET;
+  for (const other of dimensions) {
+    if (other.id === dim.id) continue;
+    const otherAngle = getAngle(other.start, other.end);
+    const angleDiff = Math.abs(otherAngle - angle);
+    const isParallel = angleDiff < 0.01 || Math.abs(angleDiff - Math.PI) < 0.01;
+    if (!isParallel) continue;
+    const d = Math.abs(other.offset - newOffset);
+    if (d < bestDist) { bestDist = d; snappedOffset = other.offset; }
+  }
+
+  return { ...dim, offset: snappedOffset };
       }
 
       // === تمديد البداية أو النهاية ===
