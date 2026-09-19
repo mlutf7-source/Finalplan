@@ -263,7 +263,19 @@ const handleDeleteAllAxes = useCallback(() => {
   commit();
   setAxes([]);
 }, [axes, commit]);
-
+// ✅ نسخ محور
+const handleCopyAxis = useCallback((id: string) => {
+  const original = axes.find(a => a.id === id);
+  if (!original) return;
+  commit();
+  const copy: Axis = {
+    ...original,
+    id: uuidv4(),
+    // نسخة جديدة بإزاحة بسيطة للتمييز
+    offset: original.offset + 1,
+  };
+  setAxes(prev => reorderAxes([...prev, copy]));
+}, [axes, commit]);
 // ✅ عند التحديث، نعيد الترتيب تلقائياً
 const handleUpdateAxis = useCallback((id: string, patch: Partial<Axis>) => {
   commit();
@@ -287,5 +299,5 @@ globalFontFamily, setGlobalFontFamily,
 axisBubbleSize, setAxisBubbleSize,
 handleApplyGlobalTextSize,
 handleApplyGlobalFontFamily,
-handleDeleteAllDimensions };
+handleDeleteAllDimensions, handleCopyAxis };
 }
