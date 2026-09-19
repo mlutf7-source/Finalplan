@@ -25,10 +25,11 @@ interface Props {
   selectedTextId: string | null; selectedNorthArrowId: string | null; selectedClipFrameId: string | null; selectedAxisId: string | null;
   dimensions: Dimension[]; dimensionFontSize: number; selectedDimId: string | null; scale?: number; planImage?: PlanImage | null;
   showGrid?: boolean;
+  axisBubbleSize?: number;
 }
 
 export const CanvasLayers: React.FC<Props> = React.memo((props) => {
-  const { walls, windows, doors, view, width, height, selectedWallId, tempStart, tempEnd, columns, texts, regions, stairs, northArrows, clipFrames, axes, selectedStairId, selectedElement, selectedTextId, selectedNorthArrowId, selectedClipFrameId, selectedAxisId, dimensions, dimensionFontSize, selectedDimId, scale = 1, planImage = null, showGrid = true } = props;
+  const { walls, windows, doors, view, width, height, selectedWallId, tempStart, tempEnd, columns, texts, regions, stairs, northArrows, clipFrames, axes, selectedStairId, selectedElement, selectedTextId, selectedNorthArrowId, selectedClipFrameId, selectedAxisId, dimensions, dimensionFontSize, selectedDimId, scale = 1, planImage = null, showGrid = true } = props;axisBubbleSize,
   return (
     <>
       <CanvasRenderer
@@ -44,6 +45,7 @@ export const CanvasLayers: React.FC<Props> = React.memo((props) => {
         axes={axes}
         selectedAxisId={selectedAxisId}
         showGrid={showGrid}
+        axisBubbleSize={axisBubbleSize}
       />
       <ElementLayer columns={columns} windows={windows} doors={doors} walls={walls} view={view} width={width} height={height} scale={scale} />
       <ElementEditLayer selected={selectedElement} columns={columns} windows={windows} doors={doors} walls={walls} view={view} width={width} height={height} />
