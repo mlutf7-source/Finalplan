@@ -29,7 +29,7 @@ interface Props {
 }
 
 export const CanvasLayers: React.FC<Props> = React.memo((props) => {
-  const { walls, windows, doors, view, width, height, selectedWallId, tempStart, tempEnd, columns, texts, regions, stairs, northArrows, clipFrames, axes, selectedStairId, selectedElement, selectedTextId, selectedNorthArrowId, selectedClipFrameId, selectedAxisId, dimensions, dimensionFontSize, selectedDimId, scale = 1, planImage = null, showGrid = true } = props;axisBubbleSize,
+  const { walls, windows, doors, view, width, height, selectedWallId, tempStart, tempEnd, columns, texts, regions, stairs, northArrows, clipFrames, axes, selectedStairId, selectedElement, selectedTextId, selectedNorthArrowId, selectedClipFrameId, selectedAxisId, dimensions, dimensionFontSize, selectedDimId, scale = 1, planImage = null, showGrid = true, axisBubbleSize = 11 } = props;
   return (
     <>
       <CanvasRenderer
