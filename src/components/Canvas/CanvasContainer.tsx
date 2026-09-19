@@ -62,6 +62,7 @@ interface Props {
   onUpdateAxis: (id: string, patch: Partial<Axis>) => void;
   onDeleteAxis: (id: string) => void;
   showGrid: boolean;
+  axisBubbleSize: number;
 }
 
 export const CanvasContainer: React.FC<Props> = (props) => {
@@ -211,6 +212,7 @@ useEffect(() => {
             selectedAxisId={setup.axisEdit.selectedAxisId}
             showGrid={props.showGrid}
             scale={renderScale}  
+            axisBubbleSize={props.axisBubbleSize}
           />
           {!toolActive && (<CanvasZoomControls onZoomIn={() => events.zoomAtPoint(size.w / 2, size.h / 2, 1.2)} onZoomOut={() => events.zoomAtPoint(size.w / 2, size.h / 2, 1 / 1.2)} onReset={reset} />)}
         </div>
