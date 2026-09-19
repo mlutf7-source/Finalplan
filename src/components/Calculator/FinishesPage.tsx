@@ -38,6 +38,9 @@ export const FinishesPage: React.FC<Props> = ({
   const [electricalPts, setElectricalPts] = useState(0);
   const [plumbingPts, setPlumbingPts] = useState(0);
 
+  // ✅ كمية عمالة الرخام المخصصة (قابلة للتعديل من الجدول)
+  const [marbleLaborOverride, setMarbleLaborOverride] = useState<number | null>(null);
+
   const calculate = () => {
     const input: FinishesInput = {
       floorHeight,
@@ -109,9 +112,26 @@ export const FinishesPage: React.FC<Props> = ({
     setElectricalPts(Math.ceil(res.electricalPoints));
     setPlumbingPts(Math.ceil(res.plumbingPoints));
 
+    // ✅ إعادة تعيين قيمة عمالة الرخام عند إعادة الحساب
+    setMarbleLaborOverride(null);
+
     const totalBlocks = Math.ceil(roundedRes.exteriorBlocks + roundedRes.interiorBlocks);
     const totalDoorsArea = roundedRes.doorGroups.reduce((s, g) => s + g.totalArea, 0);
     const totalWindowsArea = roundedRes.windowGroups.reduce((s, g) => s + g.totalArea, 0);
+
+    // ✅ إجمالي البلاط (أرضيات + مطابخ + حمامات + جدران)
+    const totalTileArea = Math.ceil(
+      roundedRes.correctedTileFloor +
+      roundedRes.tileKitchenFloor +
+      roundedRes.tileBathroomFloor +
+      roundedRes.correctedTileKitchenWalls +
+      roundedRes.correctedTileBathroomWalls
+    );
+
+    // ✅ قيمة عمالة الرخام الافتراضية (قبل أي تعديل)
+    const defaultMarbleLabor = hasMarble
+      ? Math.ceil(roundedRes.exteriorWallGross)
+      : 0;
 
     const dataToSave = {
       totalBlocks,
@@ -123,6 +143,14 @@ export const FinishesPage: React.FC<Props> = ({
       totalWindowsArea: Math.ceil(totalWindowsArea * 100) / 100,
       landingTileArea: roundedRes.landingTileArea,
       stepTileCount: roundedRes.stepTileCount,
+      totalTileArea,
+
+      // ✅ عمالة الرخام (افتراضية = exteriorWallGross)
+      marbleLaborArea: defaultMarbleLabor,
+
+      // ✅ نقاط الكهرباء والسباكة (لحساب عمالتها في الملخص)
+      electricalPoints: roundedRes.electricalPoints,
+      plumbingPoints: roundedRes.plumbingPoints,
 
       blockOuter: {
         blocks: roundedRes.exteriorBlocks,
@@ -151,9 +179,8 @@ export const FinishesPage: React.FC<Props> = ({
         bathroomWalls: roundedRes.correctedTileBathroomWalls,
         landing: roundedRes.landingTileArea,
         steps: roundedRes.stepTileCount,
+        total: totalTileArea,
       },
-      electricalPoints: roundedRes.electricalPoints,
-plumbingPoints: roundedRes.plumbingPoints,
       marble: {
         area: roundedRes.marbleArea,
         aggregate: roundedRes.marbleAggregate,
@@ -189,6 +216,7 @@ plumbingPoints: roundedRes.plumbingPoints,
     localStorage.setItem('finishes_results', JSON.stringify(dataToSave));
   };
 
+  // ✅ دالة تعديل مساحة الرخام يدوياً
   const handleMarbleAreaChange = (newArea: number) => {
     if (!results || newArea < 0) return;
 
@@ -227,9 +255,27 @@ plumbingPoints: roundedRes.plumbingPoints,
           cement: newMarbleCement,
           sand: newMarbleSand,
         };
+        parsed.totalMarbleArea = newArea;
         parsed.totalCement = updatedResults.totalCement;
         parsed.totalSand = updatedResults.totalSand;
         parsed.totalAggregate = updatedResults.totalAggregate;
+        localStorage.setItem('finishes_results', JSON.stringify(parsed));
+      } catch (e) {
+        // تجاهل
+      }
+    }
+  };
+
+  // ✅ دالة تعديل كمية عمالة الرخام يدوياً
+  const handleMarbleLaborChange = (newValue: number) => {
+    if (newValue < 0) return;
+    setMarbleLaborOverride(newValue);
+
+    const currentData = localStorage.getItem('finishes_results');
+    if (currentData) {
+      try {
+        const parsed = JSON.parse(currentData);
+        parsed.marbleLaborArea = newValue;
         localStorage.setItem('finishes_results', JSON.stringify(parsed));
       } catch (e) {
         // تجاهل
@@ -257,6 +303,8 @@ plumbingPoints: roundedRes.plumbingPoints,
             onElectricalChange={setElectricalPts}
             onPlumbingChange={setPlumbingPts}
             onMarbleAreaChange={handleMarbleAreaChange}
+            marbleLaborOverride={marbleLaborOverride}
+            onMarbleLaborChange={handleMarbleLaborChange}
           />
         </div>
       )}
