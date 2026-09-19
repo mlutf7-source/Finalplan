@@ -58,8 +58,13 @@ export const SummaryTables2 = ({ data, o, setO, cur, cv, floors, hasMarble = fal
   const totalPaintLaborFloors = Math.ceil((n(finishes?.paintWalls) + (n(finishes?.paintCeiling) - n(finishes?.innerWallArea))) * floors);
   const totalTileLaborFloors = Math.ceil(((n(finishes?.tileFloorArea) - n(finishes?.innerWallArea)) + n(finishes?.tileKitchenFloor) + n(finishes?.tileBathroomFloor) + n(finishes?.tileKitchenWalls) + n(finishes?.tileBathroomWalls)) * floors);
 
-  const totalMarbleLaborFloors = hasMarble ? Math.ceil(n(finishes?.exteriorWallGross) * floors) : 0;
-
+  // ✅ عمالة الرخام: القيمة المحفوظة من صفحة التشطيبات (إن وُجدت) وإلا الافتراضية
+const marbleLaborStored = n(finishes?.marbleLaborArea);
+const totalMarbleLaborFloors = hasMarble
+  ? (marbleLaborStored > 0
+      ? marbleLaborStored
+      : Math.ceil(n(finishes?.exteriorWallGross) * floors))
+  : 0;
   const blockLaborArea = totalWallLaborFloors;
 
   const blockLaborMode = prices.blockMode || 'm2';
