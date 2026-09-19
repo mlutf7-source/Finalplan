@@ -17,12 +17,28 @@ interface Props {
   onElectricalChange: (value: number) => void;
   onPlumbingChange: (value: number) => void;
   onMarbleAreaChange?: (value: number) => void;
+  marbleLaborOverride?: number | null;
+  onMarbleLaborChange?: (value: number) => void;
 }
+
+const inputStyle: React.CSSProperties = {
+  width: 70,
+  textAlign: 'center',
+  padding: 4,
+  border: '1px solid #ccc',
+  borderRadius: 4,
+  direction: 'ltr',
+  fontFamily: 'Cairo, sans-serif',
+  fontWeight: 700,
+  fontSize: '0.8rem',
+};
 
 const TotalLaborSummary: React.FC<{
   results: FinishResults;
   hasMarble: boolean;
-}> = ({ results, hasMarble }) => {
+  marbleLaborOverride?: number | null;
+  onMarbleLaborChange?: (value: number) => void;
+}> = ({ results, hasMarble, marbleLaborOverride, onMarbleLaborChange }) => {
   const totalWallLabor = Math.ceil(
     results.exteriorWallGross +
     results.interiorWallGross
@@ -49,8 +65,12 @@ const TotalLaborSummary: React.FC<{
     results.tileBathroomWalls
   );
 
+  // ✅ عمالة الرخام: القيمة المخصصة إن وُجدت، وإلا الافتراضية
+  const defaultMarbleLabor = Math.ceil(results.exteriorWallGross);
   const totalMarbleLabor = hasMarble
-    ? Math.ceil(results.exteriorWallGross)
+    ? (marbleLaborOverride !== null && marbleLaborOverride !== undefined
+        ? marbleLaborOverride
+        : defaultMarbleLabor)
     : 0;
 
   const cardStyle: React.CSSProperties = {
@@ -103,8 +123,39 @@ const TotalLaborSummary: React.FC<{
             <tr><td style={{ ...tdStyle, fontWeight: 600 }}>إجمالي عمالة التلييس</td><td style={tdStyle}>{totalPlasterLabor}</td><td style={tdStyle}>م²</td></tr>
             <tr><td style={{ ...tdStyle, fontWeight: 600 }}>إجمالي عمالة الطلاء</td><td style={tdStyle}>{totalPaintLabor}</td><td style={tdStyle}>م²</td></tr>
             <tr><td style={{ ...tdStyle, fontWeight: 600 }}>إجمالي عمالة البلاط</td><td style={tdStyle}>{totalTileLabor}</td><td style={tdStyle}>م²</td></tr>
+
+            {/* ✅ عمالة الرخام - قابلة للتعديل */}
             {hasMarble && (
-              <tr><td style={{ ...tdStyle, fontWeight: 600 }}>إجمالي عمالة الرخام</td><td style={tdStyle}>{totalMarbleLabor}</td><td style={tdStyle}>م²</td></tr>
+              <tr>
+                <td style={{ ...tdStyle, fontWeight: 600 }}>إجمالي عمالة الرخام</td>
+                <td style={tdStyle}>
+                  {onMarbleLaborChange ? (
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      dir="ltr"
+                      key={`marble-labor-${totalMarbleLabor}`}
+                      defaultValue={String(totalMarbleLabor)}
+                      style={inputStyle}
+                      onFocus={(e) => e.target.select()}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                      }}
+                      onBlur={(e) => {
+                        const v = parseFloat(e.target.value.replace(',', '.'));
+                        if (!isNaN(v) && v >= 0) {
+                          onMarbleLaborChange(v);
+                        } else {
+                          e.target.value = String(totalMarbleLabor);
+                        }
+                      }}
+                    />
+                  ) : (
+                    totalMarbleLabor
+                  )}
+                </td>
+                <td style={tdStyle}>م²</td>
+              </tr>
             )}
           </tbody>
         </table>
@@ -121,6 +172,8 @@ export const FinishTables: React.FC<Props> = ({
   onElectricalChange,
   onPlumbingChange,
   onMarbleAreaChange,
+  marbleLaborOverride,
+  onMarbleLaborChange,
 }) => {
   const handlePdfShare = async () => {
     await createPdfFromElement('finishes-pdf', 'تقرير_التشطيبات');
@@ -150,7 +203,14 @@ export const FinishTables: React.FC<Props> = ({
 
       <LaborTable results={results} hasMarble={hasMarble} />
       <DeductionsTable results={results} />
-      <TotalLaborSummary results={results} hasMarble={hasMarble} />
+
+      <TotalLaborSummary
+        results={results}
+        hasMarble={hasMarble}
+        marbleLaborOverride={marbleLaborOverride}
+        onMarbleLaborChange={onMarbleLaborChange}
+      />
+
       <WallConstructionTables results={results} />
       <PlasterPaintTables results={results} />
       <TileMarbleTables
