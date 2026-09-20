@@ -53,10 +53,11 @@ export const SummaryTables2 = ({ data, o, setO, cur, cv, floors, hasMarble = fal
   const totalPrimer = Math.ceil(n(finishes?.paint?.primer) * floors);
   const totalPaint = Math.ceil(n(finishes?.paint?.paint) * floors);
 
-  const totalWallLaborFloors = Math.ceil((n(finishes?.exteriorWallGross) + n(finishes?.interiorWallGross)) * floors);
-  const totalPlasterLaborFloors = Math.ceil((n(finishes?.plasterWallsLabor) + (n(finishes?.plasterCeilingLabor) - n(finishes?.innerWallArea))) * floors);
-  const totalPaintLaborFloors = Math.ceil((n(finishes?.paintWalls) + (n(finishes?.paintCeiling) - n(finishes?.innerWallArea))) * floors);
-  const totalTileLaborFloors = Math.ceil(((n(finishes?.tileFloorArea) - n(finishes?.innerWallArea)) + n(finishes?.tileKitchenFloor) + n(finishes?.tileBathroomFloor) + n(finishes?.tileKitchenWalls) + n(finishes?.tileBathroomWalls)) * floors);
+// ✅ قيم جدول إجمالي كميات العمالة (مأخوذة مباشرة من صفحة التشطيبات)
+const totalWallLaborFloors = Math.ceil(n(finishes?.laborWallTotal) * floors);
+const totalPlasterLaborFloors = Math.ceil(n(finishes?.laborPlasterTotal) * floors);
+const totalPaintLaborFloors = Math.ceil(n(finishes?.laborPaintTotal) * floors);
+const totalTileLaborFloors = Math.ceil(n(finishes?.laborTileTotal) * floors);
 
   // ✅ عمالة الرخام: القيمة المحفوظة من صفحة التشطيبات (إن وُجدت) وإلا الافتراضية
   const marbleLaborStored = n(finishes?.marbleLaborArea);
