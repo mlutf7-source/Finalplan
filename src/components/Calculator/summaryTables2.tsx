@@ -59,12 +59,13 @@ export const SummaryTables2 = ({ data, o, setO, cur, cv, floors, hasMarble = fal
   const totalTileLaborFloors = Math.ceil(((n(finishes?.tileFloorArea) - n(finishes?.innerWallArea)) + n(finishes?.tileKitchenFloor) + n(finishes?.tileBathroomFloor) + n(finishes?.tileKitchenWalls) + n(finishes?.tileBathroomWalls)) * floors);
 
   // ✅ عمالة الرخام: القيمة المحفوظة من صفحة التشطيبات (إن وُجدت) وإلا الافتراضية
-const marbleLaborStored = n(finishes?.marbleLaborArea);
-const totalMarbleLaborFloors = hasMarble
-  ? (marbleLaborStored > 0
-      ? marbleLaborStored
-      : Math.ceil(n(finishes?.exteriorWallGross) * floors))
-  : 0;
+  const marbleLaborStored = n(finishes?.marbleLaborArea);
+  const totalMarbleLaborFloors = hasMarble
+    ? (marbleLaborStored > 0
+        ? marbleLaborStored
+        : Math.ceil(n(finishes?.exteriorWallGross) * floors))
+    : 0;
+
   const blockLaborArea = totalWallLaborFloors;
 
   const blockLaborMode = prices.blockMode || 'm2';
@@ -74,10 +75,23 @@ const totalMarbleLaborFloors = hasMarble
   const totalConcreteCost = n(struct?.totalConcrete) * n(prices.concrete?.[1]?.price || prices.concrete?.[0]?.price || '0');
   const prelimCost = Math.ceil(n(prelim?.excavationVolume)) * n(prices.preliminary?.[0]?.price || '0') + Math.ceil(n(prelim?.backfillVolume)) * n(prices.preliminary?.[1]?.price || '0') + Math.ceil(n(prelim?.plinthArea)) * n(prices.preliminary?.[2]?.price || '0');
 
+  // ✅ البلوك في جدول التشطيبات (للاستخدام في حساب مواد التشطيبات)
   const totalBlocksCost = totalBlocks * n(fmat[0]?.price || '0');
+
+  // ✅ البلوك الهوردي (القيمة الصحيحة من جدول تكلفة المواد - نفس معادلة summaryTables1)
+  const structureBlockPrice = n(fmat[0]?.price || '0');
+  const structureTotalBlocks = Math.ceil(buildingArea * 5 * floors);
+  const structureBlocksCost = structureTotalBlocks * structureBlockPrice;
+
   const laborPrice = n(prices.labor?.[0]?.price || '0');
   const slabConcreteForLabor = buildingArea * 0.3 * floors;
   const laborTotal = n(struct?.footingConcrete) * laborPrice + n(struct?.neckConcrete) * laborPrice + n(struct?.columnConcrete) * floors * laborPrice + n(struct?.middConcrete) * laborPrice + slabConcreteForLabor * laborPrice;
+
+  // ✅ مصاريف إضافية (من prices.other - نفس معادلة summaryTables1)
+  let extrasCost = 0;
+  (prices.other || []).forEach((e: any) => {
+    extrasCost += e.costType === 'fixed' ? n(e.price) : (totalSteelCost + totalConcreteCost) * n(e.price) / 100;
+  });
 
   // ✅ تكلفة مواد التشطيبات (مع إجمالي البلاط)
   const fmCost =
@@ -113,17 +127,20 @@ const totalMarbleLaborFloors = hasMarble
     totalWindowsArea * n(doorsAndWindows[1]?.price || '0') +
     totalDoorsArea * n(doorsAndWindows[2]?.price || '0');
 
-  const grandTotal = cv(prelimCost + totalConcreteCost + totalSteelCost + totalBlocksCost + laborTotal + (fmCost + flCost + feCost));
+  // ✅ الإجمالي الكلي (مع استبدال البلوك + إضافة المصاريف الإضافية)
+  const grandTotal = cv(prelimCost + totalConcreteCost + totalSteelCost + structureBlocksCost + laborTotal + extrasCost + (fmCost + flCost + feCost));
 
   const costPerM2 = (buildingArea > 0) ? grandTotal / buildingArea : 0;
   const steelPerM2 = (buildingArea > 0) ? n(struct?.totalSteel) / buildingArea : 0;
   const concretePerM2 = (buildingArea > 0) ? n(struct?.totalConcrete) / buildingArea : 0;
 
+  // ✅ النسب المئوية (7 نسب)
   const prelimPercent = grandTotal > 0 ? (cv(prelimCost) / grandTotal) * 100 : 0;
-  const steelPercent = grandTotal > 0 ? (cv(totalSteelCost) / grandTotal) * 100 : 0;
   const concretePercent = grandTotal > 0 ? (cv(totalConcreteCost) / grandTotal) * 100 : 0;
-  const blocksPercent = grandTotal > 0 ? (cv(totalBlocksCost) / grandTotal) * 100 : 0;
+  const steelPercent = grandTotal > 0 ? (cv(totalSteelCost) / grandTotal) * 100 : 0;
+  const blocksPercent = grandTotal > 0 ? (cv(structureBlocksCost) / grandTotal) * 100 : 0;
   const laborPercent = grandTotal > 0 ? (cv(laborTotal) / grandTotal) * 100 : 0;
+  const extrasPercent = grandTotal > 0 ? (cv(extrasCost) / grandTotal) * 100 : 0;
   const finishesPercent = grandTotal > 0 ? (cv((fmCost + flCost + feCost)) / grandTotal) * 100 : 0;
 
   return (
@@ -139,13 +156,10 @@ const totalMarbleLaborFloors = hasMarble
             <Tr4 label={`الرمل (${floors} دور)`} qty={`${fm(totalSand)} م³`} price={fm(cv(n(fmat[3]?.price || '0')))} total={fm(cv(totalSand * n(fmat[3]?.price || '0')))} />
             <Tr4 label={`الركام (${floors} دور)`} qty={`${fm(totalAggregate)} م³`} price={fm(cv(n(fmat[4]?.price || '0')))} total={fm(cv(totalAggregate * n(fmat[4]?.price || '0')))} />
             <Tr4 label={`الرخام (${floors} دور)`} qty={`${fm(totalMarbleArea)} م²`} price={fm(cv(n(fmat[1]?.price || '0')))} total={fm(cv(totalMarbleArea * n(fmat[1]?.price || '0')))} />
-            {/* ✅ البلاط: إجمالي (أرضيات + جدران) */}
             <Tr4 label={`البلاط - إجمالي (${floors} دور)`} qty={`${fm(totalTileArea)} م²`} price={fm(cv(n(fmat[8]?.price || '0')))} total={fm(cv(totalTileArea * n(fmat[8]?.price || '0')))} />
-            {/* ✅ بلاط البسطة */}
             {landingTileArea > 0 && (
               <Tr4 label={`بلاط البسطة (${floors} دور)`} qty={`${fm(landingTileArea)} م²`} price={fm(cv(n(fmat[8]?.price || '0')))} total={fm(cv(landingTileArea * n(fmat[8]?.price || '0')))} />
             )}
-            {/* ✅ بلاط الدرج */}
             {stepTileCount > 0 && (
               <Tr4 label={`بلاط الدرج (${floors} دور)`} qty={`${fm(stepTileCount)} درجة`} price={fm(cv(n(fmat[9]?.price || '0')))} total={fm(cv(stepTileCount * n(fmat[9]?.price || '0')))} />
             )}
@@ -160,7 +174,6 @@ const totalMarbleLaborFloors = hasMarble
             <Tr4 label={`التلييس (${floors} دور)`} qty={`${fmt(totalPlasterLaborFloors)} م²`} price={fm(cv(n(flab[2]?.price || '0')))} total={fm(cv(totalPlasterLaborFloors * n(flab[2]?.price || '0')))} />
             <Tr4 label={`الطلاء (${floors} دور)`} qty={`${fmt(totalPaintLaborFloors)} م²`} price={fm(cv(n(flab[3]?.price || '0')))} total={fm(cv(totalPaintLaborFloors * n(flab[3]?.price || '0')))} />
             <Tr4 label={`البلاط (${floors} دور)`} qty={`${fmt(totalTileLaborFloors)} م²`} price={fm(cv(n(flab[4]?.price || '0')))} total={fm(cv(totalTileLaborFloors * n(flab[4]?.price || '0')))} />
-            {/* ✅ نقاط الكهرباء والسباكة في عمالة التشطيبات */}
             {electricalPoints > 0 && (
               <Tr4 label={`عمالة الكهرباء - ${electricalPoints} نقطة (${floors} دور)`} qty={`${fm(electricalPoints)} نقطة`} price={fm(cv(electricalLaborPrice))} total={fm(cv(electricalLaborCost))} />
             )}
@@ -170,13 +183,10 @@ const totalMarbleLaborFloors = hasMarble
             <tr><td style={S.td} colSpan={4}><strong>🔧 تكاليف إضافية</strong></td></tr>
             <Tr4 label={`سباكة الحمامات (${floors} دور)`} qty={`${fm(Math.ceil(n(finishes?.extras?.bathrooms) * floors))} حمام`} price={fm(cv(n(fext[0]?.price || '0')))} total={fm(cv(Math.ceil(n(finishes?.extras?.bathrooms) * floors) * n(fext[0]?.price || '0')))} />
             <Tr4 label={`سباكة المطابخ (${floors} دور)`} qty={`${fm(Math.ceil(n(finishes?.extras?.kitchens) * floors))} مطبخ`} price={fm(cv(n(fext[1]?.price || '0')))} total={fm(cv(Math.ceil(n(finishes?.extras?.kitchens) * floors) * n(fext[1]?.price || '0')))} />
-            {/* ✅ مواد الكهرباء بالمتر المربع */}
             {electricalMaterialsPrice > 0 && (
               <Tr4 label={`مواد الكهرباء (${floors} دور)`} qty={`${fm(Math.ceil(buildingArea * floors))} م²`} price={fm(cv(electricalMaterialsPrice))} total={fm(cv(electricalMaterialsCost))} />
             )}
-            {/* ✅ النوافذ بالمتر المربع */}
             <Tr4 label={`النوافذ (${floors} دور)`} qty={`${fmt(totalWindowsArea)} م²`} price={fm(cv(n(doorsAndWindows[1]?.price || '0')))} total={fm(cv(totalWindowsArea * n(doorsAndWindows[1]?.price || '0')))} />
-            {/* ✅ الأبواب بالمتر المربع */}
             <Tr4 label={`الأبواب (${floors} دور)`} qty={`${fmt(totalDoorsArea)} م²`} price={fm(cv(n(doorsAndWindows[2]?.price || '0')))} total={fm(cv(totalDoorsArea * n(doorsAndWindows[2]?.price || '0')))} />
             <tr style={S.total}><td style={S.td} colSpan={3}>إجمالي التشطيبات</td><td style={S.td}>{fm(cv((fmCost + flCost + feCost)))} {cur}</td></tr>
           </tbody>
@@ -191,8 +201,9 @@ const totalMarbleLaborFloors = hasMarble
             <Tr label="الأعمال التمهيدية" value={`${fm(cv(prelimCost))} ${cur}`} />
             <Tr label="الخرسانة" value={`${fm(cv(totalConcreteCost))} ${cur}`} />
             <Tr label="الحديد" value={`${fm(cv(totalSteelCost))} ${cur}`} />
-            <Tr label={`البلوك الهوردي (${floors} دور)`} value={`${fm(cv(totalBlocksCost))} ${cur}`} />
+            <Tr label={`البلوك الهوردي (${floors} دور)`} value={`${fm(cv(structureBlocksCost))} ${cur}`} />
             <Tr label={`أجور المقاول (${floors} دور)`} value={`${fm(cv(laborTotal))} ${cur}`} />
+            <Tr label="إجمالي المصاريف الإضافية" value={`${fm(cv(extrasCost))} ${cur}`} />
             <Tr label="إجمالي التشطيبات" value={`${fm(cv((fmCost + flCost + feCost)))} ${cur}`} />
             <Tr label="إجمالي تكلفة المشروع" value={`${fm(grandTotal)} ${cur}`} total />
           </tbody>
@@ -224,13 +235,15 @@ const totalMarbleLaborFloors = hasMarble
           </div>
         </div>
 
+        {/* ✅ المؤشرات: 7 نسب بنفس الترتيب المطلوب */}
         <div style={{ marginTop: '12px' }}>
           {[
             { label: 'نسبة الأعمال التمهيدية', val: prelimPercent, color: '#FFC107' },
-            { label: 'نسبة تكلفة الحديد', val: steelPercent, color: '#f44336' },
-            { label: 'نسبة تكلفة الخرسانة', val: concretePercent, color: '#2196F3' },
+            { label: 'نسبة الخرسانة', val: concretePercent, color: '#2196F3' },
+            { label: 'نسبة الحديد', val: steelPercent, color: '#f44336' },
             { label: 'نسبة البلوك الهوردي', val: blocksPercent, color: '#607D8B' },
             { label: 'نسبة أجور المقاول', val: laborPercent, color: '#4CAF50' },
+            { label: 'نسبة المصاريف الإضافية', val: extrasPercent, color: '#FF5722' },
             { label: 'نسبة التشطيبات', val: finishesPercent, color: '#8B5CF6' },
           ].map((r, i) => (
             <div key={i} style={{ marginBottom: '6px' }}>
