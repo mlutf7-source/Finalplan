@@ -186,16 +186,18 @@ const [planImage, setPlanImage] = useState<PlanImage | null>(null);
 
 const handleAddAxes = useCallback((newAxes: Axis[]) => { commit(); setAxes(newAxes); }, [commit]);
 
-// ✅ إنشاء محاور تلقائياً من الجدران (طول موحّد لكل الاتجاهات)
+// ✅ إنشاء محاور تلقائياً مع محاذاة الفقاعات
 const handleAddAxesFromWalls = useCallback(() => {
   if (walls.length === 0) {
     alert('لا توجد جدران لإنشاء محاور منها');
     return;
   }
 
-  // ✅ المرحلة 1: إيجاد أطول جدار رأسي وأطول جدار أفقي
-  let longestVerticalWall = 0;
-  let longestHorizontalWall = 0;
+  // ✅ المرحلة 1: إيجاد أطول جدار رأسي وأطول جدار أفقي + مراكزهما
+  let longestVerticalWallLength = 0;
+  let verticalReferenceCenterY = 0;
+  let longestHorizontalWallLength = 0;
+  let horizontalReferenceCenterX = 0;
 
   walls.forEach(wall => {
     const dx = Math.abs(wall.end.x - wall.start.x);
@@ -203,20 +205,36 @@ const handleAddAxesFromWalls = useCallback(() => {
     const wallLength = Math.sqrt(dx * dx + dy * dy);
     if (wallLength === 0) return;
 
+    // حساب المركز الحقيقي للجدار (بإزاحة نصف السماكة)
+    const dirX = (wall.end.x - wall.start.x) / wallLength;
+    const dirY = (wall.end.y - wall.start.y) / wallLength;
+    const normalX = -dirY;
+    const normalY = dirX;
+    const sign = wall.normalSign ?? 1;
+    const halfThickness = (wall.thickness / 2) * sign;
+    const centerX = (wall.start.x + wall.end.x) / 2 + normalX * halfThickness;
+    const centerY = (wall.start.y + wall.end.y) / 2 + normalY * halfThickness;
+
     if (dx > dy) {
       // جدار أفقي
-      if (wallLength > longestHorizontalWall) longestHorizontalWall = wallLength;
+      if (wallLength > longestHorizontalWallLength) {
+        longestHorizontalWallLength = wallLength;
+        horizontalReferenceCenterX = centerX;
+      }
     } else {
       // جدار رأسي
-      if (wallLength > longestVerticalWall) longestVerticalWall = wallLength;
+      if (wallLength > longestVerticalWallLength) {
+        longestVerticalWallLength = wallLength;
+        verticalReferenceCenterY = centerY;
+      }
     }
   });
 
   // ✅ الطول الموحّد = أطول جدار + 4 متر (2 من كل جانب)
-  const unifiedVerticalLength = longestVerticalWall + 4;
-  const unifiedHorizontalLength = longestHorizontalWall + 4;
+  const unifiedVerticalLength = longestVerticalWallLength + 4;
+  const unifiedHorizontalLength = longestHorizontalWallLength + 4;
 
-  // ✅ المرحلة 2: إنشاء المحاور بالأطوال الموحّدة
+  // ✅ المرحلة 2: إنشاء المحاور بالأطوال والمراكز الموحّدة
   const newAxes: Axis[] = [];
   const existingVAxes = axes.filter(a => a.type === 'vertical');
   const existingHAxes = axes.filter(a => a.type === 'horizontal');
@@ -229,38 +247,36 @@ const handleAddAxesFromWalls = useCallback(() => {
     const wallLength = Math.sqrt(dx * dx + dy * dy);
     if (wallLength === 0) return;
 
+    // حساب المركز الحقيقي للجدار (بإزاحة نصف السماكة)
     const dirX = (wall.end.x - wall.start.x) / wallLength;
     const dirY = (wall.end.y - wall.start.y) / wallLength;
     const normalX = -dirY;
     const normalY = dirX;
     const sign = wall.normalSign ?? 1;
     const halfThickness = (wall.thickness / 2) * sign;
-    const offsetX = normalX * halfThickness;
-    const offsetY = normalY * halfThickness;
-
-    const centerX = (wall.start.x + wall.end.x) / 2 + offsetX;
-    const centerY = (wall.start.y + wall.end.y) / 2 + offsetY;
+    const centerX = (wall.start.x + wall.end.x) / 2 + normalX * halfThickness;
+    const centerY = (wall.start.y + wall.end.y) / 2 + normalY * halfThickness;
 
     if (dx > dy) {
-      // جدار أفقي → محور أفقي (بطول موحّد)
+      // جدار أفقي → محور أفقي (طول ومركز X موحّد)
       newAxes.push({
         id: uuidv4(),
         type: 'horizontal',
         label: String(hIdx + 1),
         position: centerY,
-        center: centerX,
+        center: horizontalReferenceCenterX,
         length: unifiedHorizontalLength,
         offset: 0,
       });
       hIdx++;
     } else {
-      // جدار رأسي → محور رأسي (بطول موحّد)
+      // جدار رأسي → محور رأسي (طول ومركز Y موحّد)
       newAxes.push({
         id: uuidv4(),
         type: 'vertical',
         label: String.fromCharCode(65 + vIdx),
         position: centerX,
-        center: centerY,
+        center: verticalReferenceCenterY,
         length: unifiedVerticalLength,
         offset: 0,
       });
