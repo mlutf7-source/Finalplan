@@ -186,12 +186,37 @@ const [planImage, setPlanImage] = useState<PlanImage | null>(null);
 
 const handleAddAxes = useCallback((newAxes: Axis[]) => { commit(); setAxes(newAxes); }, [commit]);
 
+// ✅ إنشاء محاور تلقائياً من الجدران (طول موحّد لكل الاتجاهات)
 const handleAddAxesFromWalls = useCallback(() => {
   if (walls.length === 0) {
     alert('لا توجد جدران لإنشاء محاور منها');
     return;
   }
 
+  // ✅ المرحلة 1: إيجاد أطول جدار رأسي وأطول جدار أفقي
+  let longestVerticalWall = 0;
+  let longestHorizontalWall = 0;
+
+  walls.forEach(wall => {
+    const dx = Math.abs(wall.end.x - wall.start.x);
+    const dy = Math.abs(wall.end.y - wall.start.y);
+    const wallLength = Math.sqrt(dx * dx + dy * dy);
+    if (wallLength === 0) return;
+
+    if (dx > dy) {
+      // جدار أفقي
+      if (wallLength > longestHorizontalWall) longestHorizontalWall = wallLength;
+    } else {
+      // جدار رأسي
+      if (wallLength > longestVerticalWall) longestVerticalWall = wallLength;
+    }
+  });
+
+  // ✅ الطول الموحّد = أطول جدار + 4 متر (2 من كل جانب)
+  const unifiedVerticalLength = longestVerticalWall + 4;
+  const unifiedHorizontalLength = longestHorizontalWall + 4;
+
+  // ✅ المرحلة 2: إنشاء المحاور بالأطوال الموحّدة
   const newAxes: Axis[] = [];
   const existingVAxes = axes.filter(a => a.type === 'vertical');
   const existingHAxes = axes.filter(a => a.type === 'horizontal');
@@ -203,7 +228,6 @@ const handleAddAxesFromWalls = useCallback(() => {
     const dy = Math.abs(wall.end.y - wall.start.y);
     const wallLength = Math.sqrt(dx * dx + dy * dy);
     if (wallLength === 0) return;
-    const axisLength = wallLength + 4;
 
     const dirX = (wall.end.x - wall.start.x) / wallLength;
     const dirY = (wall.end.y - wall.start.y) / wallLength;
@@ -218,24 +242,26 @@ const handleAddAxesFromWalls = useCallback(() => {
     const centerY = (wall.start.y + wall.end.y) / 2 + offsetY;
 
     if (dx > dy) {
+      // جدار أفقي → محور أفقي (بطول موحّد)
       newAxes.push({
         id: uuidv4(),
         type: 'horizontal',
         label: String(hIdx + 1),
         position: centerY,
         center: centerX,
-        length: axisLength,
+        length: unifiedHorizontalLength,
         offset: 0,
       });
       hIdx++;
     } else {
+      // جدار رأسي → محور رأسي (بطول موحّد)
       newAxes.push({
         id: uuidv4(),
         type: 'vertical',
         label: String.fromCharCode(65 + vIdx),
         position: centerX,
         center: centerY,
-        length: axisLength,
+        length: unifiedVerticalLength,
         offset: 0,
       });
       vIdx++;
@@ -248,7 +274,6 @@ const handleAddAxesFromWalls = useCallback(() => {
   }
 
   commit();
-  // ✅ إضافة المحاور الجديدة ثم إعادة الترتيب والتسمية تلقائياً
   setAxes(prev => reorderAxes([...prev, ...newAxes]));
   alert(`تم إضافة ${newAxes.length} محور`);
 }, [walls, axes, commit]);
