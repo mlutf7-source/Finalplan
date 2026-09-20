@@ -145,6 +145,11 @@ export const FinishesPage: React.FC<Props> = ({
       stepTileCount: roundedRes.stepTileCount,
       totalTileArea,
 
+// ✅ قيم جدول إجمالي كميات العمالة (مطابقة تماماً للجدول)
+laborWallTotal: Math.ceil(roundedRes.exteriorWallGross + roundedRes.interiorWallGross),
+laborPlasterTotal: Math.ceil(roundedRes.plasterWallsLabor + (roundedRes.plasterCeilingLabor - roundedRes.innerWallArea)),
+laborPaintTotal: Math.ceil(roundedRes.paintWalls + (roundedRes.paintCeiling - roundedRes.innerWallArea)),
+laborTileTotal: Math.ceil((roundedRes.tileFloorArea - roundedRes.innerWallArea) + roundedRes.tileKitchenFloor + roundedRes.tileBathroomFloor + roundedRes.tileKitchenWalls + roundedRes.tileBathroomWalls),
       // ✅ عمالة الرخام (افتراضية = exteriorWallGross)
       marbleLaborArea: defaultMarbleLabor,
 
