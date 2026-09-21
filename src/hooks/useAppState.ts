@@ -12,6 +12,8 @@ import { distance, closestPointOnSegment, segmentIntersection, wallRectangle } f
 import { DEFAULT_COLUMN, DEFAULT_WINDOW, DEFAULT_DOOR } from '../core/types';
 import { v4 as uuidv4 } from 'uuid';
 import { useProjectManager } from './useProjectManager';
+import { useStairElementManager } from './useStairElementManager';
+import { useStairElementEdit } from './useStairElementEdit';
 interface Snapshot { walls: Wall[]; columns: Column[]; windows: Window[]; doors: Door[]; dimensions: Dimension[]; regions: RoomRegion[]; texts: TextElement[]; stairs: Stair[]; northArrows: NorthArrow[]; axes: Axis[]; }
 function generateDimensionsForWalls(walls: Wall[]): Dimension[] { const dims: Dimension[] = []; walls.forEach((wall) => { const rect = wallRectangle(wall); const face = rect.faces[0]; const breakPoints: Point[] = []; walls.forEach((other) => { if (other.id === wall.id) return; const otherRect = wallRectangle(other); otherRect.faces.forEach((otherFace) => { const intersection = segmentIntersection(face.start, face.end, otherFace.start, otherFace.end); if (intersection) { breakPoints.push(intersection); } }); const cpStart = closestPointOnSegment(other.start, face.start, face.end); if (distance(cpStart, other.start) < 0.05) breakPoints.push({ ...other.start }); const cpEnd = closestPointOnSegment(other.end, face.start, face.end); if (distance(cpEnd, other.end) < 0.05) breakPoints.push({ ...other.end }); }); const unique: Point[] = []; breakPoints.forEach((p) => { if (!unique.some((u) => distance(u, p) < 0.01)) unique.push(p); }); const dir = { x: face.end.x - face.start.x, y: face.end.y - face.start.y }; unique.sort((a, b) => { const denominator = dir.x * dir.x + dir.y * dir.y || 1; const ta = ((a.x - face.start.x) * dir.x + (a.y - face.start.y) * dir.y) / denominator; const tb = ((b.x - face.start.x) * dir.x + (b.y - face.start.y) * dir.y) / denominator; return ta - tb; }); const points = [face.start, ...unique, face.end]; for (let i = 0; i < points.length - 1; i++) { const segmentLength = distance(points[i], points[i + 1]); if (segmentLength > 0.4) { const offsetValue = -(wall.thickness * 3); dims.push({ id: uuidv4(), start: { ...points[i] }, end: { ...points[i + 1] }, offset: offsetValue }); } } }); return dims; }
 function generateDimensionsForAxes(axes: Axis[]): Dimension[] {
@@ -61,7 +63,16 @@ const [axes, setAxes] = useState<Axis[]>([]);
 const [layers, setLayers] = useState<LayersState>({ walls: true, dimensions: true, columns: true, windows: true, doors: true, texts: true, regions: true, stairs: true, northArrow: true, axes: true });
 const [showQuantities, setShowQuantities] = useState(false);
 const [activeTab, setActiveTab] = useState<'preliminary' | 'structure' | 'finishes' | 'prices' | 'summary'>('finishes');
-const elements = useElementManager(); const regionsManager = useRegionManager(walls); const textManager = useTextManager(); const stairManager = useStairManager(walls); const results = useCalculations(walls, elements.columns, elements.windows, elements.doors, 3);
+const elements = useElementManager(); const regionsManager = useRegionManager(walls); const textManager = useTextManager(); const stairManager = useStairManager(walls); // ✅ مدير عناصر السلم الجديد
+const stairElementManager = useStairElementManager();
+const stairElementEdit = useStairElementEdit();
+
+// ✅ حالة نافذة إعدادات السلم
+const [showStairDialog, setShowStairDialog] = useState(false);
+const [stairDialogConfig, setStairDialogConfig] = useState<{
+  mode: 'insert-step' | 'insert-landing' | null;
+  config: any;
+}>({ mode: null, config: null }); const results = useCalculations(walls, elements.columns, elements.windows, elements.doors, 3);
 const projectManager = useProjectManager(); useEffect(() => { projectManager.init(); }, []);
 const [clipFrame, setClipFrame] = useState<ClipFrame | null>(null); const INITIAL_VIEW = { zoom: 0.75, offsetX: 0, offsetY: 0 }; const [view, setView] = useState(INITIAL_VIEW);
 const [isDirty, setIsDirty] = useState(false); const [currentProjectName, setCurrentProjectName] = useState<string>(''); const savedSnapshotRef = useRef<string>('');
@@ -185,7 +196,61 @@ const handleNewProject = useCallback(() => { setWalls([]); setDimensions([]); el
 const [planImage, setPlanImage] = useState<PlanImage | null>(null);
 
 const handleAddAxes = useCallback((newAxes: Axis[]) => { commit(); setAxes(newAxes); }, [commit]);
+// ✅ فتح نافذة إعدادات السلم
+const handleOpenStairDialog = useCallback(() => {
+  setShowStairDialog(true);
+  setMode('view');
+}, []);
 
+const handleCloseStairDialog = useCallback(() => {
+  setShowStairDialog(false);
+  setStairDialogConfig({ mode: null, config: null });
+}, []);
+
+// ✅ تفعيل وضع الإدراج (ينتظر النقر على الشاشة)
+const handleInsertStepMode = useCallback((config: any) => {
+  setStairDialogConfig({ mode: 'insert-step', config });
+  setMode('stair'); // نستخدم mode 'stair' الحالي
+}, []);
+
+const handleInsertLandingMode = useCallback((config: any) => {
+  setStairDialogConfig({ mode: 'insert-landing', config });
+  setMode('stair');
+}, []);
+
+// ✅ عند النقر على الشاشة في وضع الإدراج
+const handlePlaceStairElement = useCallback((pt: Point) => {
+  const { mode: insertMode, config } = stairDialogConfig;
+  if (!insertMode || !config) return;
+
+  commit();
+  if (insertMode === 'insert-step') {
+    stairElementManager.addElementAtPoint(
+      {
+        type: 'step',
+        width: config.width,
+        length: config.length,
+        treadDepth: config.treadDepth,
+        riserHeight: config.riserHeight,
+        stepCount: config.stepCount,
+      },
+      pt
+    );
+  } else if (insertMode === 'insert-landing') {
+    stairElementManager.addElementAtPoint(
+      {
+        type: 'landing',
+        width: config.width,
+        length: config.length,
+      },
+      pt
+    );
+  }
+
+  // اخرج من وضع الإدراج
+  setStairDialogConfig({ mode: null, config: null });
+  setMode('view');
+}, [stairDialogConfig, stairElementManager, commit]);
 // ✅ إنشاء محاور تلقائياً مع محاذاة الفقاعات
 const handleAddAxesFromWalls = useCallback(() => {
   if (walls.length === 0) {
@@ -340,5 +405,14 @@ globalFontFamily, setGlobalFontFamily,
 axisBubbleSize, setAxisBubbleSize,
 handleApplyGlobalTextSize,
 handleApplyGlobalFontFamily,
-handleDeleteAllDimensions, handleCopyAxis };
+handleDeleteAllDimensions, handleCopyAxis, // ✅ النظام الجديد للسلم
+stairElementManager,
+stairElementEdit,
+showStairDialog,
+stairDialogConfig,
+handleOpenStairDialog,
+handleCloseStairDialog,
+handleInsertStepMode,
+handleInsertLandingMode,
+handlePlaceStairElement };
 }
