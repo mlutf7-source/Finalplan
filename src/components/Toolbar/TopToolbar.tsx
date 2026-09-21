@@ -35,6 +35,7 @@ globalFontFamily: string;
 onGlobalFontFamilyChange: (v: string) => void;
 axisBubbleSize: number;
 onAxisBubbleSizeChange: (v: number) => void;
+  onOpenMultiStairDialog: () => void;
 }
 
 const btnBase: React.CSSProperties = {
@@ -61,6 +62,7 @@ export const TopToolbar: React.FC<Props> = ({
 globalTextSize, onGlobalTextSizeChange,
 globalFontFamily, onGlobalFontFamilyChange,
 axisBubbleSize, onAxisBubbleSizeChange,
+  onOpenMultiStairDialog,
 }) => {
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [showAxisDialog, setShowAxisDialog] = useState(false);
@@ -240,7 +242,8 @@ axisBubbleSize, onAxisBubbleSizeChange,
             <div style={{ ...menuStyle, right: 0 }}>
               <div onClick={() => { onModeChange('kitchen'); setOpenMenu(null); }} style={itemStyle}>🍳 مطبخ</div>
               <div onClick={() => { onModeChange('bathroom'); setOpenMenu(null); }} style={itemStyle}>🛁 حمام</div>
-              <div onClick={() => { onModeChange('stair'); setOpenMenu(null); }} style={itemStyle}>🪜 سلم</div>
+              <div onClick={() => { onModeChange('stair'); setOpenMenu(null); }} style={itemStyle}>🪜 سلم سحبتين</div>
+<div onClick={() => { onOpenMultiStairDialog(); setOpenMenu(null); }} style={itemStyle}>🪜 سلم متعدد</div>
             </div>
           )}
         </div>
