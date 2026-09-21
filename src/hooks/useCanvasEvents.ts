@@ -16,19 +16,17 @@ interface EventsProps {
   onPlaceColumn: (pt: Point) => void; onPlaceWindow: (pt: Point) => void; onPlaceDoor: (pt: Point) => void; onPlaceRegion: (pt: Point, type: RegionType) => void;
   onAddText: (position: Point, text: string) => void; setup: SetupReturn;
   planImage?: PlanImage | null; onPlanImageChange?: (img: PlanImage) => void; onImageSelect?: (id: string | null) => void;
-  axes: Axis[];
-  stairElements: StairElement[];
+  axes: Axis[];stairElements: StairElement[];
 stairElementEdit: {
   selectedId: string | null;
   setSelectedId: (id: string | null) => void;
   hitTest: (pt: Point, el: any) => 'move' | 'rotate' | null;
   select: (el: any, pt: Point, mode: any) => void;
   deselect: () => void;
-  moveDrag: (pt: Point, all: any[], onUpdate: any) => void;
+  moveDrag: (pt: Point, all: any[], onUpdate: any, walls?: any[]) => void;   // ✅ أضفنا walls?
   endDrag: () => void;
 };
-onUpdateStairElement: (id: string, patch: Partial<StairElement>) => void;
-}
+onUpdateStairElement: (id: string, patch: Partial<StairElement>) => void;}
 
 function isPointInPolygon(pt: Point, polygon: Point[]): boolean {
   let inside = false;
