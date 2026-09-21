@@ -1,7 +1,7 @@
 import type { Wall, Column, Window, Door, Stair } from './types';
 import type { RoomRegion } from './regionTypes';
 import { distance } from './geometry';
-
+import { computeExteriorFootprintArea } from './footprintArea';
 export interface FinishesInput {
   floorHeight: number;
   hasMarble: boolean;
@@ -122,17 +122,26 @@ export function calculateFinishes(
   const extWalls = walls.filter(w => w.type === 'exterior');
   const intWalls = walls.filter(w => w.type === 'interior');
 
-  const exteriorWallGross = extWalls.reduce((s, w) => s + distance(w.start, w.end) * floorHeight, 0);
+  // ✅ إضافة سماكة الجدارين (يمين + يسار) للطول الداخلي → الطول الخارجي
+const exteriorWallGross = extWalls.reduce(
+  (s, w) => s + (distance(w.start, w.end) + 2 * w.thickness) * floorHeight, 0
+);
   const interiorWallGross = intWalls.reduce((s, w) => s + distance(w.start, w.end) * floorHeight, 0);
 
-  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-  extWalls.forEach(w => {
-    minX = Math.min(minX, w.start.x, w.end.x);
-    maxX = Math.max(maxX, w.start.x, w.end.x);
-    minY = Math.min(minY, w.start.y, w.end.y);
-    maxY = Math.max(maxY, w.start.y, w.end.y);
-  });
-  const floorArea = Math.max(0, (maxX - minX) * (maxY - minY));
+  // ✅ حساب المساحة الفعلية للمبنى بدقة (Shoelace + offset)
+const footprintArea = computeExteriorFootprintArea(extWalls);
+
+// Fallback: Bounding box لو فشل التتبع
+let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+extWalls.forEach(w => {
+  minX = Math.min(minX, w.start.x, w.end.x);
+  maxX = Math.max(maxX, w.start.x, w.end.x);
+  minY = Math.min(minY, w.start.y, w.end.y);
+  maxY = Math.max(maxY, w.start.y, w.end.y);
+});
+const bboxArea = Math.max(0, (maxX - minX) * (maxY - minY));
+
+const floorArea = footprintArea > 0 ? footprintArea : bboxArea;
   const ceilingArea = floorArea;
 
   const kitchenRegions = regions.filter(r => r.type === 'kitchen');
