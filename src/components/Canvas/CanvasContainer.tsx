@@ -9,7 +9,8 @@ import { AxisProperties } from '../Properties/AxisProperties';
 import { useCanvasSetup } from '../../hooks/useCanvasSetup';
 import { useCanvasEvents } from '../../hooks/useCanvasEvents';
 import { rebuildStairPolygon } from '../../core/stairGeometry';
-import type { Wall, AppMode, DrawingType, Column, Window, Door, TextElement, Stair, Point, NorthArrow, ClipFrame, PlanImage, Axis } from '../../core/types';
+import { StairElementProperties } from '../Properties/StairElementProperties';
+import type { Wall, AppMode, DrawingType, Column, Window, Door, TextElement, Stair, Point, NorthArrow, ClipFrame, PlanImage, Axis, StairElement } from '../../core/types';
 import type { Dimension } from '../../core/dimensionTypes';
 import type { RoomRegion, RegionType } from '../../core/regionTypes';
 import type { LayersState } from '../Toolbar/LayersPanel';
@@ -64,6 +65,11 @@ interface Props {
   showGrid: boolean;
   axisBubbleSize: number;
   onCopyAxis: (id: string) => void;
+  stairElements: StairElement[];
+selectedStairElementId: string | null;
+onUpdateStairElement: (id: string, patch: Partial<StairElement>) => void;
+onRotateStairElement: (id: string) => void;
+onDeleteStairElement: (id: string) => void;
 }
 
 export const CanvasContainer: React.FC<Props> = (props) => {
@@ -124,6 +130,14 @@ drawing.updateLastWallEnd(newEnd); } } } } }} />
           onChangeOffset={(off) => props.onUpdateAxis(setup.axisEdit.selectedAxisId!, { offset: off })}
         />
       )}
+      {props.selectedStairElementId && (
+  <StairElementProperties
+    element={props.stairElements.find(el => el.id === props.selectedStairElementId) ?? null}
+    onUpdate={props.onUpdateStairElement}
+    onRotate={props.onRotateStairElement}
+    onDelete={props.onDeleteStairElement}
+  />
+)}
       <div style={{ position: 'relative' }}>
 
         {/* ✅ أزرار التحكم بالصورة المستوردة (تظهر عند التحديد) */}
@@ -218,6 +232,8 @@ drawing.updateLastWallEnd(newEnd); } } } } }} />
             showGrid={props.showGrid}
             scale={renderScale}  
             axisBubbleSize={props.axisBubbleSize}
+            stairElements={props.stairElements}
+selectedStairElementId={props.selectedStairElementId}
           />
           {!toolActive && (<CanvasZoomControls onZoomIn={() => events.zoomAtPoint(size.w / 2, size.h / 2, 1.2)} onZoomOut={() => events.zoomAtPoint(size.w / 2, size.h / 2, 1 / 1.2)} onReset={reset} />)}
         </div>
