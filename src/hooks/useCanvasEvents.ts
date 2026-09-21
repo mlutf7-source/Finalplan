@@ -46,9 +46,9 @@ export function useCanvasEvents({
   walls, mode, drawingType, onModeChange, dimensions, layers, texts, regions, stairs, northArrows, frozen,
   onAddStairAtPoint, onUpdateStair, onPlaceColumn, onPlaceWindow, onPlaceDoor, onPlaceRegion, onAddText, setup,
   planImage, onPlanImageChange, onImageSelect, axes,
+  stairElements, stairElementEdit, onUpdateStairElement,   // ✅ مضاف
 }: EventsProps) {
-  const { containerRef, view, setZoom, pan, setView, drawing, edit, dimensionMode, dimensionEdit, elementEdit, textEdit, stairEdit, northArrowEdit, clipFrameEdit, axisEdit, setSelectedRegionId, setSelectedStairId, stairElements, stairElementEdit, onUpdateStairElement } = setup;
-  const pointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
+  const { containerRef, view, setZoom, pan, setView, drawing, edit, dimensionMode, dimensionEdit, elementEdit, textEdit, stairEdit, northArrowEdit, clipFrameEdit, axisEdit, setSelectedRegionId, setSelectedStairId } = setup;  const pointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
   const pinchRef = useRef<{ dist: number; zoom: number; cx: number; cy: number } | null>(null);
   const downPointRef = useRef<{ world: { x: number; y: number }; type: string } | null>(null);
   const stairDragCandidateRef = useRef<{ pt: Point; stair: Stair } | null>(null);
