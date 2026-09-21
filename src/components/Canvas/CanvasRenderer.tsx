@@ -34,6 +34,9 @@ const GRID_EXTENT = 20;
 const GRID_SPACING = 0.5;
 const CORNER_TOLERANCE = 0.05;
 
+// ✅ عتبة البحث عن الجدران القريبة (للأركان الذكية)
+const NEAR_WALL_TOLERANCE = 0.6;
+
 // ✅ تقاطع خطين لانهائيين
 function lineIntersect(p1: Point, p2: Point, p3: Point, p4: Point): Point | null {
   const d = (p2.x - p1.x) * (p4.y - p3.y) - (p2.y - p1.y) * (p4.x - p3.x);
@@ -42,69 +45,82 @@ function lineIntersect(p1: Point, p2: Point, p3: Point, p4: Point): Point | null
   return { x: p1.x + ua * (p2.x - p1.x), y: p1.y + ua * (p2.y - p1.y) };
 }
 
-// ✅ حساب زوايا الجدار مع Miter Joint (يحاول كلا الجانبين)
-function computeMiteredCorners(wall: Wall, allWalls: Wall[]): Point[] {
-  const rect = wallRectangle(wall);
-  const corners = rect.corners.map(c => ({ ...c }));
+// ✅ أقرب نقطة على قطعة مستقيمة
+function closestPointOnSeg(p: Point, a: Point, b: Point): Point {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const lenSq = dx * dx + dy * dy;
+  if (lenSq === 0) return { ...a };
+  let t = ((p.x - a.x) * dx + (p.y - a.y) * dy) / lenSq;
+  t = Math.max(0, Math.min(1, t));
+  return { x: a.x + t * dx, y: a.y + t * dy };
+}
 
+// ✅ حساب زوايا الجدار مع امتداد ذكي للأركان
+// يستخدم عند وجود جدران قريبة (بعد الدفع للداخل في الرسم)
+function computeExtendedCorners(wall: Wall, allWalls: Wall[]): Point[] {
   const dx = wall.end.x - wall.start.x;
   const dy = wall.end.y - wall.start.y;
   const len = Math.hypot(dx, dy);
-  if (len < 1e-9) return corners;
-  const dirX = dx / len;
-  const dirY = dy / len;
+  if (len < 1e-9) {
+    const rect = wallRectangle(wall);
+    return rect.corners.map(c => ({ ...c }));
+  }
+  const ux = dx / len;
+  const uy = dy / len;
+  const normal: Point = { x: -uy, y: ux };
+  const sign = wall.normalSign ?? 1;
+  const offsetX = normal.x * wall.thickness * sign;
+  const offsetY = normal.y * wall.thickness * sign;
+
+  // ✅ البحث عن جدران قريبة من start/end
+  let extendStart = 0;
+  let extendEnd = 0;
 
   for (const other of allWalls) {
     if (other.id === wall.id) continue;
 
-    const odx = other.end.x - other.start.x;
-    const ody = other.end.y - other.start.y;
-    const olen = Math.hypot(odx, ody);
-    if (olen < 1e-9) continue;
+    // فحص start
+    const d_s1 = distance(wall.start, other.start);
+    const d_s2 = distance(wall.start, other.end);
+    const cpS = closestPointOnSeg(wall.start, other.start, other.end);
+    const d_s3 = distance(wall.start, cpS);
+    const minS = Math.min(d_s1, d_s2, d_s3);
 
-    // ✅ الاتجاه العمودي على الجدار الآخر
-    const onX = -ody / olen;
-    const onY = odx / olen;
+    // فحص end
+    const d_e1 = distance(wall.end, other.start);
+    const d_e2 = distance(wall.end, other.end);
+    const cpE = closestPointOnSeg(wall.end, other.start, other.end);
+    const d_e3 = distance(wall.end, cpE);
+    const minE = Math.min(d_e1, d_e2, d_e3);
 
-    // ✅ الحافتان المُزاحتان للجدار الآخر (الجانبان)
-    const oA_pos = { x: other.start.x + onX * other.thickness, y: other.start.y + onY * other.thickness };
-    const oB_pos = { x: other.end.x + onX * other.thickness, y: other.end.y + onY * other.thickness };
-    const oA_neg = { x: other.start.x - onX * other.thickness, y: other.start.y - onY * other.thickness };
-    const oB_neg = { x: other.end.x - onX * other.thickness, y: other.end.y - onY * other.thickness };
-
-    const startShared =
-      distance(wall.start, other.start) < CORNER_TOLERANCE ||
-      distance(wall.start, other.end) < CORNER_TOLERANCE;
-    const endShared =
-      distance(wall.end, other.start) < CORNER_TOLERANCE ||
-      distance(wall.end, other.end) < CORNER_TOLERANCE;
-
-    // ✅ دالة مساعدة: تجرب التقاطع مع كلا الحافتين وتختار الأقرب للنقطة المشتركة
-    const tryMiter = (cornerIndex: number, sharedPt: Point) => {
-      const offsetCorner = corners[cornerIndex];
-      const lineB = { x: offsetCorner.x + dirX, y: offsetCorner.y + dirY };
-
-      const m_pos = lineIntersect(offsetCorner, lineB, oA_pos, oB_pos);
-      const m_neg = lineIntersect(offsetCorner, lineB, oA_neg, oB_neg);
-
-      const d_pos = m_pos ? distance(m_pos, sharedPt) : Infinity;
-      const d_neg = m_neg ? distance(m_neg, sharedPt) : Infinity;
-
-      const best = d_pos <= d_neg ? m_pos : m_neg;
-      const bestDist = Math.min(d_pos, d_neg);
-
-      // ✅ عتبة أدق: thickness * 2 بدلاً من * 5
-      if (best && bestDist < Math.max(wall.thickness, other.thickness) * 2) {
-        corners[cornerIndex] = best;
-      }
-    };
-
-    if (startShared) tryMiter(3, wall.start);
-    if (endShared) tryMiter(2, wall.end);
+    if (minS < NEAR_WALL_TOLERANCE) {
+      extendStart = Math.max(extendStart, other.thickness);
+    }
+    if (minE < NEAR_WALL_TOLERANCE) {
+      extendEnd = Math.max(extendEnd, other.thickness);
+    }
   }
 
-  return corners;
+  // ✅ مدّ نقاط النهاية
+  const extStart: Point = {
+    x: wall.start.x - ux * extendStart,
+    y: wall.start.y - uy * extendStart,
+  };
+  const extEnd: Point = {
+    x: wall.end.x + ux * extendEnd,
+    y: wall.end.y + uy * extendEnd,
+  };
+
+  // ✅ الزوايا الأربع للمستطيل الممدود
+  return [
+    extStart,
+    extEnd,
+    { x: extEnd.x + offsetX, y: extEnd.y + offsetY },
+    { x: extStart.x + offsetX, y: extStart.y + offsetY },
+  ];
 }
+
 export const CanvasRenderer: React.FC<Props> = React.memo(({
   walls,
   view,
@@ -202,8 +218,8 @@ export const CanvasRenderer: React.FC<Props> = React.memo(({
   };
 
   const drawWall = (ctx: CanvasRenderingContext2D, wall: Wall, selected: boolean) => {
-    // ✅ حساب الأركان مع Miter Joint
-    const cornersWorld = computeMiteredCorners(wall, walls);
+    // ✅ حساب الأركان مع الامتداد الذكي (بدل Miter)
+    const cornersWorld = computeExtendedCorners(wall, walls);
     const corners = cornersWorld.map(toScreen);
 
     ctx.fillStyle = selected ? COLORS.selected : COLORS.exterior;
