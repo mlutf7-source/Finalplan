@@ -403,11 +403,12 @@ export default function App() {
       showGrid={showGrid}
       axisBubbleSize={state.axisBubbleSize}
       onCopyAxis={state.handleCopyAxis}
-      stairElements={state.stairElementManager.stairElements}
+            stairElements={state.stairElementManager.stairElements}
 selectedStairElementId={state.stairElementEdit.selectedId}
 onUpdateStairElement={state.stairElementManager.updateElement}
 onRotateStairElement={state.stairElementManager.rotateElementById}
 onDeleteStairElement={state.stairElementManager.removeElement}
+stairElementEdit={state.stairElementEdit}
     />
   );
 
