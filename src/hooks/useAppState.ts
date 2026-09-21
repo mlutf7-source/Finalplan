@@ -197,7 +197,7 @@ const [planImage, setPlanImage] = useState<PlanImage | null>(null);
 
 const handleAddAxes = useCallback((newAxes: Axis[]) => { commit(); setAxes(newAxes); }, [commit]);
 // ✅ فتح نافذة إعدادات السلم
-const handleOpenStairDialog = useCallback(() => {
+  const handleOpenMultiStairDialog = useCallback(() => {
   setShowStairDialog(true);
   setMode('view');
 }, []);
@@ -206,17 +206,38 @@ const handleCloseStairDialog = useCallback(() => {
   setShowStairDialog(false);
   setStairDialogConfig({ mode: null, config: null });
 }, []);
-
-// ✅ تفعيل وضع الإدراج (ينتظر النقر على الشاشة)
+// ✅ إدراج السحبة مباشرة في مركز الشاشة
 const handleInsertStepMode = useCallback((config: any) => {
-  setStairDialogConfig({ mode: 'insert-step', config });
-  setMode('stair'); // نستخدم mode 'stair' الحالي
-}, []);
+  const centerX = -view.offsetX;
+  const centerY = -view.offsetY;
+  commit();
+  stairElementManager.addElementAtPoint(
+    {
+      type: 'step',
+      width: config.width,
+      length: config.length,
+      treadDepth: config.treadDepth,
+      riserHeight: config.riserHeight,
+      stepCount: config.stepCount,
+    },
+    { x: centerX, y: centerY }
+  );
+}, [view, stairElementManager, commit]);
 
+// ✅ إدراج البسطة مباشرة في مركز الشاشة
 const handleInsertLandingMode = useCallback((config: any) => {
-  setStairDialogConfig({ mode: 'insert-landing', config });
-  setMode('stair');
-}, []);
+  const centerX = -view.offsetX;
+  const centerY = -view.offsetY;
+  commit();
+  stairElementManager.addElementAtPoint(
+    {
+      type: 'landing',
+      width: config.width,
+      length: config.length,
+    },
+    { x: centerX, y: centerY }
+  );
+}, [view, stairElementManager, commit]);
 
 // ✅ عند النقر على الشاشة في وضع الإدراج
 const handlePlaceStairElement = useCallback((pt: Point) => {
@@ -411,7 +432,7 @@ stairElementEdit,
 showStairDialog,
 stairDialogConfig,
 handleOpenStairDialog,
-handleCloseStairDialog,
+handleOpenMultiStairDialog,
 handleInsertStepMode,
 handleInsertLandingMode,
 handlePlaceStairElement };
