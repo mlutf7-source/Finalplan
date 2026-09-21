@@ -18,6 +18,19 @@ interface DrawState {
   end: Point | null;
 }
 
+// ✅ دالة مساعدة: تدفع نقطة البداية للجدار التالي للداخل بمقدار سماكة الجدار السابق
+function pushStartInsideWall(endPoint: Point, wall: Wall): Point {
+  const dx = wall.end.x - wall.start.x;
+  const dy = wall.end.y - wall.start.y;
+  const len = Math.hypot(dx, dy) || 1;
+  const ux = dx / len;
+  const uy = dy / len;
+  return {
+    x: endPoint.x - ux * wall.thickness,
+    y: endPoint.y - uy * wall.thickness,
+  };
+}
+
 export function useDrawing(walls: Wall[], axes: Axis[], onAdd: (w: Wall) => void) {
   const [d, setD] = useState<DrawState>({ active: false, type: null, originalStart: null, start: null, end: null });
   const ref = useRef(d);
@@ -45,14 +58,15 @@ export function useDrawing(walls: Wall[], axes: Axis[], onAdd: (w: Wall) => void
         ref.current = newState;
         setD(newState);
       } else {
-        // نعود إلى نهاية آخر جدار متبقٍّ
+        // نعود إلى نهاية آخر جدار متبقٍّ (مع الدفع للداخل)
         const lastWall = walls[walls.length - 1];
+        const pushed = pushStartInsideWall(lastWall.end, lastWall);
         const newState: DrawState = {
           active: true,
           type: cur.type,
-          originalStart: { ...lastWall.end },
-          start: { ...lastWall.end },
-          end: { ...lastWall.end },
+          originalStart: { ...pushed },
+          start: { ...pushed },
+          end: { ...pushed },
         };
         ref.current = newState;
         setD(newState);
@@ -123,17 +137,17 @@ export function useDrawing(walls: Wall[], axes: Axis[], onAdd: (w: Wall) => void
     if (faceSnap) {
       if (isAngleSnapped) {
         if (isHorizontal) {
-  end = {
-    x: faceSnap.point.x,
-    y: originalStart.y,
-  };
-  usedFaceSnap = true;
-} else {
-  end = {
-    x: originalStart.x,
-    y: faceSnap.point.y,
-  };
-  usedFaceSnap = true;
+          end = {
+            x: faceSnap.point.x,
+            y: originalStart.y,
+          };
+          usedFaceSnap = true;
+        } else {
+          end = {
+            x: originalStart.x,
+            y: faceSnap.point.y,
+          };
+          usedFaceSnap = true;
         }
       } else {
         end = faceSnap.point;
@@ -168,12 +182,15 @@ export function useDrawing(walls: Wall[], axes: Axis[], onAdd: (w: Wall) => void
     onAdd(newWall);
     setLastWallId(newWall.id);
 
+    // ✅ دفع نقطة بداية الجدار التالي للداخل بمقدار سماكة الجدار السابق
+    const pushedStart = pushStartInsideWall(end, newWall);
+
     const newState: DrawState = {
       active: true,
       type: cur.type,
-      originalStart: { ...end },
-      start: { ...end },
-      end: { ...end },
+      originalStart: { ...pushedStart },
+      start: { ...pushedStart },
+      end: { ...pushedStart },
     };
     ref.current = newState;
     setD(newState);
@@ -192,12 +209,15 @@ export function useDrawing(walls: Wall[], axes: Axis[], onAdd: (w: Wall) => void
     onAdd(newWall);
     setLastWallId(newWall.id);
 
+    // ✅ دفع نقطة بداية الجدار التالي للداخل بمقدار سماكة الجدار السابق
+    const pushedStart = pushStartInsideWall(cur.end, newWall);
+
     const newState: DrawState = {
       active: true,
       type: cur.type,
-      originalStart: { ...cur.end },
-      start: { ...cur.end },
-      end: { ...cur.end },
+      originalStart: { ...pushedStart },
+      start: { ...pushedStart },
+      end: { ...pushedStart },
     };
     ref.current = newState;
     setD(newState);
@@ -207,16 +227,26 @@ export function useDrawing(walls: Wall[], axes: Axis[], onAdd: (w: Wall) => void
   const updateLastWallEnd = useCallback((newEnd: Point) => {
     const cur = ref.current;
     if (!cur.active || !cur.type) return;
+
+    // ✅ الدفع للداخل بناءً على الجدار الأخير
+    const lastWall = walls[walls.length - 1];
+    let pushedStart = { ...newEnd };
+    if (lastWall) {
+      // نبني جداراً وهمياً من نفس نقطة البداية إلى النهاية الجديدة
+      const tempWall: Wall = { ...lastWall, end: { ...newEnd } };
+      pushedStart = pushStartInsideWall(newEnd, tempWall);
+    }
+
     const newState: DrawState = {
       active: true,
       type: cur.type,
-      originalStart: { ...newEnd },
-      start: { ...newEnd },
-      end: { ...newEnd },
+      originalStart: { ...pushedStart },
+      start: { ...pushedStart },
+      end: { ...pushedStart },
     };
     ref.current = newState;
     setD(newState);
-  }, []);
+  }, [walls]);
 
   return { isDrawing: d.active, drawingType: d.type, tempStart: d.start, tempEnd: d.end, lastWallId, begin, move, finish, finishWithLength, cancel: reset, updateLastWallEnd };
-}
+          }
