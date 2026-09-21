@@ -436,3 +436,4 @@ handleCloseStairDialog,        // ✅ مضاف
 handleInsertStepMode,
 handleInsertLandingMode,
 handlePlaceStairElement };
+}
