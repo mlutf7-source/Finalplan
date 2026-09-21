@@ -8,6 +8,7 @@ import { App as CapApp } from '@capacitor/app';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import './App.css';
+import { StairSettingsDialog } from './components/Stair/StairSettingsDialog';
 
 const handleError = (msg: string) => alert(msg);
 
@@ -402,6 +403,11 @@ export default function App() {
       showGrid={showGrid}
       axisBubbleSize={state.axisBubbleSize}
       onCopyAxis={state.handleCopyAxis}
+      stairElements={state.stairElementManager.stairElements}
+selectedStairElementId={state.stairElementEdit.selectedId}
+onUpdateStairElement={state.stairElementManager.updateElement}
+onRotateStairElement={state.stairElementManager.rotateElementById}
+onDeleteStairElement={state.stairElementManager.removeElement}
     />
   );
 
@@ -451,6 +457,7 @@ globalFontFamily={state.globalFontFamily}
 onGlobalFontFamilyChange={state.handleApplyGlobalFontFamily}
 axisBubbleSize={state.axisBubbleSize}
 onAxisBubbleSizeChange={state.setAxisBubbleSize}
+      onOpenMultiStairDialog={state.handleOpenMultiStairDialog}
     />
   );
 
@@ -708,6 +715,18 @@ onAxisBubbleSizeChange={state.setAxisBubbleSize}
           </div>
         </div>
       )}
+      {/* ✅ نافذة إعدادات السلم المتعدد */}
+{state.showStairDialog && (
+  <StairSettingsDialog
+    onClose={state.handleCloseStairDialog}
+    onInsertStep={(config) => {
+      state.handleInsertStepMode(config);
+    }}
+    onInsertLanding={(config) => {
+      state.handleInsertLandingMode(config);
+    }}
+  />
+)}
     </div>
   );
 }
