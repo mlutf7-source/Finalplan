@@ -272,21 +272,21 @@ const handlePlaceStairElement = useCallback((pt: Point) => {
   setStairDialogConfig({ mode: null, config: null });
   setMode('view');
 }, [stairDialogConfig, stairElementManager, commit]);
-  // ✅ نسخ عنصر سلم (سحبة أو بسطة)
+// ✅ نسخ عنصر سلم (سحبة أو بسطة)
 const handleCopyStairElement = useCallback((id: string) => {
   const el = stairElementManager.stairElements.find(e => e.id === id);
   if (!el) return;
   commit();
   stairElementManager.addElementAtPoint(
     {
-      type: (el as any).type,
-      width: (el as any).width,
-      length: (el as any).length,
-      treadDepth: (el as any).treadDepth,
-      riserHeight: (el as any).riserHeight,
-      stepCount: (el as any).stepCount,
+      type: el.type,
+      width: el.width,
+      length: el.length,
+      treadDepth: el.treadDepth,
+      riserHeight: el.riserHeight,
+      stepCount: el.stepCount,
     },
-    { x: ((el as any).x ?? 0) + 1.5, y: ((el as any).y ?? 0) + 1.5 }
+    { x: el.position.x + 1.5, y: el.position.y + 1.5 }
   );
 }, [stairElementManager, commit]);
 // ✅ إنشاء محاور تلقائياً مع محاذاة الفقاعات
