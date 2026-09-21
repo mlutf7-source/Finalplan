@@ -21,9 +21,11 @@ interface Props {
   onDeleteText: () => void;
   onDeleteRegion: () => void;
   onDeleteStair: () => void;
+  onDeleteStairElement: () => void;
+  onCopyStairElement: () => void;
   onDeleteAxis: () => void;
   onDeselectAll: () => void;
-  selectedType: 'wall' | 'column' | 'window' | 'door' | 'dimension' | 'text' | 'region' | 'stair' | 'axis' | null;
+  selectedType: 'wall' | 'column' | 'window' | 'door' | 'dimension' | 'text' | 'region' | 'stair' | 'stairElement' | 'axis' | null;
   onCopyAxis?: () => void;
 }
 
@@ -53,8 +55,10 @@ export const CanvasSidebars: React.FC<Props> = React.memo(({
   onDeleteText,
   onDeleteRegion,
   onDeleteStair,
-  onDeleteAxis,
-  onDeselectAll,
+onDeleteStairElement,
+onCopyStairElement,
+onDeleteAxis,
+onDeselectAll,
   selectedType,
   onCopyAxis,
 }) => {
@@ -122,8 +126,14 @@ export const CanvasSidebars: React.FC<Props> = React.memo(({
             <button onClick={onDeleteRegion} title="حذف المنطقة" style={{ ...btnStyle, background: '#e44', color: '#fff' }}>🗑</button>
           )}
           {selectedType === 'stair' && (
-            <button onClick={onDeleteStair} title="حذف السلم" style={{ ...btnStyle, background: '#e44', color: '#fff' }}>🗑</button>
-          )}
+  <button onClick={onDeleteStair} title="حذف السلم" style={{ ...btnStyle, background: '#e44', color: '#fff' }}>🗑</button>
+)}
+{selectedType === 'stairElement' && (
+  <>
+    <button onClick={onCopyStairElement} title="نسخ" style={{ ...btnStyle, background: '#06f', color: '#fff' }}>📋</button>
+    <button onClick={onDeleteStairElement} title="حذف" style={{ ...btnStyle, background: '#e44', color: '#fff' }}>🗑</button>
+  </>
+)}
           {selectedType === 'axis' && (
   <>
     {onCopyAxis && (
