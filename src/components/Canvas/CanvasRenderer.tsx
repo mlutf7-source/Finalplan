@@ -130,28 +130,50 @@ export const CanvasRenderer: React.FC<Props> = React.memo(({
   };
 
   const drawWall = (ctx: CanvasRenderingContext2D, wall: Wall, selected: boolean) => {
-    const rect = wallRectangle(wall);
-    const corners = rect.corners.map(toScreen);
-    ctx.fillStyle = selected ? COLORS.selected : COLORS.exterior;
-    ctx.beginPath();
-    ctx.moveTo(corners[0].x, corners[0].y);
-    ctx.lineTo(corners[1].x, corners[1].y);
-    ctx.lineTo(corners[2].x, corners[2].y);
-    ctx.lineTo(corners[3].x, corners[3].y);
-    ctx.closePath();
-    ctx.fill();
-    if (selected) {
-      const s = toScreen(wall.start);
-      const e = toScreen(wall.end);
-      ctx.fillStyle = COLORS.handle;
-      [s, e].forEach(p => ctx.fillRect(p.x - 4, p.y - 4, 8, 8));
-      const mid = toScreen({ x: (wall.start.x + wall.end.x) / 2, y: (wall.start.y + wall.end.y) / 2 });
-      ctx.fillStyle = COLORS.dimension;
-      ctx.font = `${Math.max(11, 12 * view.zoom * scale)}px sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.fillText(distance(wall.start, wall.end).toFixed(2), mid.x + 15, mid.y - 15);
+  const rect = wallRectangle(wall);
+
+  // ✅ تمديد الجدار بنصف سماكته من كل طرف (لرسم الأركان فقط)
+  const dx = wall.end.x - wall.start.x;
+  const dy = wall.end.y - wall.start.y;
+  const len = Math.hypot(dx, dy);
+  const halfExt = wall.thickness / 2;
+  const ux = len > 0 ? dx / len : 0;
+  const uy = len > 0 ? dy / len : 0;
+
+  // الأركان الأصلية (world) → نمدّدها للرسم فقط
+  const extCornersWorld = rect.corners.map((c, i) => {
+    // corners[0] و corners[3] عند البداية → نُمدّد للخلف
+    // corners[1] و corners[2] عند النهاية → نُمدّد للأمام
+    if (i === 0 || i === 3) {
+      return { x: c.x - ux * halfExt, y: c.y - uy * halfExt };
+    } else {
+      return { x: c.x + ux * halfExt, y: c.y + uy * halfExt };
     }
-  };
+  });
+
+  const corners = extCornersWorld.map(toScreen);
+
+  ctx.fillStyle = selected ? COLORS.selected : COLORS.exterior;
+  ctx.beginPath();
+  ctx.moveTo(corners[0].x, corners[0].y);
+  ctx.lineTo(corners[1].x, corners[1].y);
+  ctx.lineTo(corners[2].x, corners[2].y);
+  ctx.lineTo(corners[3].x, corners[3].y);
+  ctx.closePath();
+  ctx.fill();
+
+  if (selected) {
+    const s = toScreen(wall.start);
+    const e = toScreen(wall.end);
+    ctx.fillStyle = COLORS.handle;
+    [s, e].forEach(p => ctx.fillRect(p.x - 4, p.y - 4, 8, 8));
+    const mid = toScreen({ x: (wall.start.x + wall.end.x) / 2, y: (wall.start.y + wall.end.y) / 2 });
+    ctx.fillStyle = COLORS.dimension;
+    ctx.font = `${Math.max(11, 12 * view.zoom * scale)}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.fillText(distance(wall.start, wall.end).toFixed(2), mid.x + 15, mid.y - 15);
+  }
+};
 
   React.useEffect(() => {
     const canvas = canvasRef.current;
