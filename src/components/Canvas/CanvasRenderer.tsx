@@ -42,138 +42,69 @@ function lineIntersect(p1: Point, p2: Point, p3: Point, p4: Point): Point | null
   return { x: p1.x + ua * (p2.x - p1.x), y: p1.y + ua * (p2.y - p1.y) };
 }
 
-// ✅ حساب ركن Miter عند نقطة نهاية الجدار
-function computeMiter(wall: Wall, endpoint: Point, allWalls: Wall[]): { outer: Point; inner: Point } | null {
-  const otherWall = allWalls.find(w =>
-    w.id !== wall.id &&
-    (
-      distance(w.start, endpoint) < CORNER_TOLERANCE ||
-      distance(w.end, endpoint) < CORNER_TOLERANCE
-    )
-  );
-
-  if (!otherWall) return null;
-
-  const dxW = wall.end.x - wall.start.x;
-  const dyW = wall.end.y - wall.start.y;
-  const lenW = Math.hypot(dxW, dyW);
-
-  const dxV = otherWall.end.x - otherWall.start.x;
-  const dyV = otherWall.end.y - otherWall.start.y;
-  const lenV = Math.hypot(dxV, dyV);
-
-  if (lenW < 1e-9 || lenV < 1e-9) return null;
-
-  const uxW = dxW / lenW;
-  const uyW = dyW / lenW;
-  const uxV = dxV / lenV;
-  const uyV = dyV / lenV;
-
-  const cross = uxW * uyV - uyW * uxV;
-
-  // الجداران متوازيان أو شبه متوازيين → لا تستخدم Miter
-  if (Math.abs(cross) < 0.05) return null;
-
-  const nxW = -uyW;
-  const nyW = uxW;
-  const nxV = -uyV;
-  const nyV = uxV;
-
-  const hW = wall.thickness / 2;
-  const hV = otherWall.thickness / 2;
-
-  const intersections: Point[] = [];
-
-  const offsetsW = [hW, -hW];
-  const offsetsV = [hV, -hV];
-
-  for (const ow of offsetsW) {
-    for (const ov of offsetsV) {
-      const p1 = {
-        x: endpoint.x + nxW * ow,
-        y: endpoint.y + nyW * ow,
-      };
-
-      const p2 = {
-        x: endpoint.x + nxV * ov,
-        y: endpoint.y + nyV * ov,
-      };
-
-      const i = lineIntersect(
-        p1,
-        { x: p1.x + uxW, y: p1.y + uyW },
-        p2,
-        { x: p2.x + uxV, y: p2.y + uyV }
-      );
-
-      if (i) intersections.push(i);
-    }
-  }
-
-  if (intersections.length < 2) return null;
-
-  // نختار نقطتي التقاطع الأقرب للركن الحقيقي.
-  // هذا يمنع اختيار التقاطع البعيد الذي كان يسبب شكل المثلث.
-  intersections.sort(
-    (a, b) => distance(a, endpoint) - distance(b, endpoint)
-  );
-
-  const first = intersections[0];
-  const second = intersections[1];
-
-  return {
-    outer: first,
-    inner: second,
-  };
-}
-
-// ✅ حساب زوايا الجدار للرسم (مع Miter)
-function getWallDrawCorners(wall: Wall, allWalls: Wall[]): Point[] {
+// ✅ حساب زوايا الجدار مع Miter Joint
+function computeMiteredCorners(wall: Wall, allWalls: Wall[]): Point[] {
   const rect = wallRectangle(wall);
-  const [c0, c1, c2, c3] = rect.corners;
+  const corners = rect.corners.map(c => ({ ...c }));
 
   const dx = wall.end.x - wall.start.x;
   const dy = wall.end.y - wall.start.y;
   const len = Math.hypot(dx, dy);
-  const ux = len > 0 ? dx / len : 0;
-  const uy = len > 0 ? dy / len : 0;
-  const hT = wall.thickness / 2;
+  if (len < 1e-9) return corners;
+  const dirX = dx / len;
+  const dirY = dy / len;
 
-  let startOuter = { ...c0 };
-  let endOuter = { ...c1 };
-  let endInner = { ...c2 };
-  let startInner = { ...c3 };
+  for (const other of allWalls) {
+    if (other.id === wall.id) continue;
 
-  const sharedStart = allWalls.some(w =>
-    w.id !== wall.id && (distance(w.start, wall.start) < CORNER_TOLERANCE || distance(w.end, wall.start) < CORNER_TOLERANCE)
-  );
-  const sharedEnd = allWalls.some(w =>
-    w.id !== wall.id && (distance(w.start, wall.end) < CORNER_TOLERANCE || distance(w.end, wall.end) < CORNER_TOLERANCE)
-  );
+    const odx = other.end.x - other.start.x;
+    const ody = other.end.y - other.start.y;
+    const olen = Math.hypot(odx, ody);
+    if (olen < 1e-9) continue;
 
-  if (sharedStart) {
-    const m = computeMiter(wall, wall.start, allWalls);
-    if (m) {
-      startOuter = m.outer;
-      startInner = m.inner;
-    } else {
-      startOuter = { x: startOuter.x - ux * hT, y: startOuter.y - uy * hT };
-      startInner = { x: startInner.x - ux * hT, y: startInner.y - uy * hT };
+    const odirX = odx / olen;
+    const odirY = ody / olen;
+    const onX = -odirY;
+    const onY = odirX;
+    const osign = other.normalSign ?? 1;
+    const oOffX = onX * other.thickness * osign;
+    const oOffY = onY * other.thickness * osign;
+
+    // الحافة المزاحة للجدار الآخر (كخط)
+    const otherOffsetA = { x: other.start.x + oOffX, y: other.start.y + oOffY };
+    const otherOffsetB = { x: other.end.x + oOffX, y: other.end.y + oOffY };
+
+    const startShared =
+      distance(wall.start, other.start) < CORNER_TOLERANCE ||
+      distance(wall.start, other.end) < CORNER_TOLERANCE;
+    const endShared =
+      distance(wall.end, other.start) < CORNER_TOLERANCE ||
+      distance(wall.end, other.end) < CORNER_TOLERANCE;
+
+    // ✅ نقطة التقاء عند start
+    if (startShared) {
+      const offsetCorner = corners[3]; // wall.start + offset
+      const lineA = offsetCorner;
+      const lineB = { x: offsetCorner.x + dirX, y: offsetCorner.y + dirY };
+      const M = lineIntersect(lineA, lineB, otherOffsetA, otherOffsetB);
+      if (M && distance(M, wall.start) < Math.max(wall.thickness, other.thickness) * 5) {
+        corners[3] = M;
+      }
+    }
+
+    // ✅ نقطة التقاء عند end
+    if (endShared) {
+      const offsetCorner = corners[2]; // wall.end + offset
+      const lineA = offsetCorner;
+      const lineB = { x: offsetCorner.x + dirX, y: offsetCorner.y + dirY };
+      const M = lineIntersect(lineA, lineB, otherOffsetA, otherOffsetB);
+      if (M && distance(M, wall.end) < Math.max(wall.thickness, other.thickness) * 5) {
+        corners[2] = M;
+      }
     }
   }
 
-  if (sharedEnd) {
-    const m = computeMiter(wall, wall.end, allWalls);
-    if (m) {
-      endOuter = m.outer;
-      endInner = m.inner;
-    } else {
-      endOuter = { x: endOuter.x + ux * hT, y: endOuter.y + uy * hT };
-      endInner = { x: endInner.x + ux * hT, y: endInner.y + uy * hT };
-    }
-  }
-
-  return [startOuter, endOuter, endInner, startInner];
+  return corners;
 }
 
 export const CanvasRenderer: React.FC<Props> = React.memo(({
@@ -273,9 +204,9 @@ export const CanvasRenderer: React.FC<Props> = React.memo(({
   };
 
   const drawWall = (ctx: CanvasRenderingContext2D, wall: Wall, selected: boolean) => {
-    // ✅ استخدام Miter Joint في الأركان (بدلاً من التمديد الذي يسبب البروز)
-    const drawCornersWorld = getWallDrawCorners(wall, walls);
-    const corners = drawCornersWorld.map(toScreen);
+    // ✅ حساب الأركان مع Miter Joint
+    const cornersWorld = computeMiteredCorners(wall, walls);
+    const corners = cornersWorld.map(toScreen);
 
     ctx.fillStyle = selected ? COLORS.selected : COLORS.exterior;
     ctx.beginPath();
@@ -321,7 +252,6 @@ export const CanvasRenderer: React.FC<Props> = React.memo(({
       img.onload = () => {
         ctx.save();
         ctx.globalAlpha = planImage.opacity;
-
         const rotation = planImage.rotation || 0;
         const centerX = planImage.x + planImage.width / 2;
         const centerY = planImage.y + planImage.height / 2;
@@ -330,11 +260,9 @@ export const CanvasRenderer: React.FC<Props> = React.memo(({
         const p2 = toScreen({ x: planImage.x + planImage.width, y: planImage.y + planImage.height });
         const drawWidth = p2.x - p1.x;
         const drawHeight = p2.y - p1.y;
-
         ctx.translate(centerScreen.x, centerScreen.y);
         ctx.rotate(rotation);
         ctx.drawImage(img, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
-
         if (planImage.isSelected) {
           ctx.setLineDash([6, 4]);
           ctx.strokeStyle = '#00aaff';
