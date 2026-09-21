@@ -178,6 +178,20 @@ export function useDrawing(walls: Wall[], axes: Axis[], onAdd: (w: Wall) => void
     ref.current = newState;
     setD(newState);
   }, [onAdd, reset]);
+  // ✅ تحديث نقطة بداية الجدار التالي بعد تغيير طول الجدار الأخير
+const updateLastWallEnd = useCallback((newEnd: Point) => {
+  const cur = ref.current;
+  if (!cur.active || !cur.type) return;
+  const newState: DrawState = {
+    active: true,
+    type: cur.type,
+    originalStart: { ...newEnd },
+    start: { ...newEnd },
+    end: { ...newEnd },
+  };
+  ref.current = newState;
+  setD(newState);
+}, []);
 
-  return { isDrawing: d.active, drawingType: d.type, tempStart: d.start, tempEnd: d.end, lastWallId, begin, move, finish, finishWithLength, cancel: reset };
+  return { isDrawing: d.active, drawingType: d.type, tempStart: d.start, tempEnd: d.end, lastWallId, begin, move, finish, finishWithLength, cancel: reset, updateLastWallEnd };
 }
