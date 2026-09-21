@@ -64,12 +64,13 @@ interface Props {
   onDeleteAxis: (id: string) => void;
   showGrid: boolean;
   axisBubbleSize: number;
-  onCopyAxis: (id: string) => void;
+  onCopyAxis: (id: string) => void; 
   stairElements: StairElement[];
 selectedStairElementId: string | null;
 onUpdateStairElement: (id: string, patch: Partial<StairElement>) => void;
 onRotateStairElement: (id: string) => void;
 onDeleteStairElement: (id: string) => void;
+stairElementEdit: any;   // ✅ مضاف — hook من useStairElementEdit
 }
 
 export const CanvasContainer: React.FC<Props> = (props) => {
