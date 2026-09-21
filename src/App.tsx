@@ -408,6 +408,7 @@ selectedStairElementId={state.stairElementEdit.selectedId}
 onUpdateStairElement={state.stairElementManager.updateElement}
 onRotateStairElement={state.stairElementManager.rotateElementById}
 onDeleteStairElement={state.stairElementManager.removeElement}
+onCopyStairElement={state.handleCopyStairElement}
 stairElementEdit={state.stairElementEdit}
     />
   );
