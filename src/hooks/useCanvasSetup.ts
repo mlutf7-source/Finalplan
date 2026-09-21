@@ -26,9 +26,9 @@ interface Props {
   onDeleteColumn: (id: string) => void; onDeleteWindow: (id: string) => void; onDeleteDoor: (id: string) => void;
   onAddText: (position: Point, text: string) => void; onUpdateText: (id: string, patch: Partial<TextElement>) => void; onDeleteText: (id: string) => void; onCopyText: (text: TextElement) => void;
   clipFrame: ClipFrame | null; setClipFrame: (frame: ClipFrame | null) => void;
-  axes: Axis[]; selectedAxisId: string | null; onUpdateAxis: (id: string, patch: Partial<Axis>) => void; onDeleteAxis: (id: string) => void;
+    axes: Axis[]; selectedAxisId: string | null; onUpdateAxis: (id: string, patch: Partial<Axis>) => void; onDeleteAxis: (id: string) => void;
+  stairElementEdit: { selectedId: string | null; deselect: () => void };
 }
-
 export function useCanvasSetup({
   walls, onWallsChange, mode, drawingType, onModeChange,
   dimensions, onAddDimension, onDimensionsChange, dimensionFontSize, layers, frozen,
@@ -37,7 +37,7 @@ export function useCanvasSetup({
   onPlaceColumn, onPlaceWindow, onPlaceDoor, onPlaceRegion, onDeleteRegion,
   updateColumn, updateWindow, updateDoor, onDeleteColumn, onDeleteWindow, onDeleteDoor,
   onAddText, onUpdateText, onDeleteText, onCopyText, clipFrame, setClipFrame,
-  axes, onUpdateAxis,
+    axes, onUpdateAxis, stairElementEdit,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 800, h: 450 });
@@ -63,22 +63,22 @@ const edit = useWallEditor(walls, onWallsChange as any, axes);
   }, []);
 
   const deselectAll = useCallback(() => {
-    edit.deselect(); dimensionEdit.deselect(); elementEdit.deselect(); textEdit.deselect();
-    northArrowEdit.deselect(); clipFrameEdit.deselect(); axisEdit.deselect();
-    setSelectedRegionId(null); setSelectedStairId(null); stairEdit.end();
-  }, [edit, dimensionEdit, elementEdit, textEdit, northArrowEdit, clipFrameEdit, axisEdit, stairEdit]);
-
-  const selectedType: 'wall' | 'column' | 'window' | 'door' | 'dimension' | 'text' | 'region' | 'stair' | 'northArrow' | 'clipFrame' | 'axis' | null =
-    edit.selectedWallId ? 'wall' :
-      elementEdit.selected ? elementEdit.selected.type :
-        dimensionEdit.selectedDimId ? 'dimension' :
-          textEdit.selectedTextId ? 'text' :
-            selectedRegionId ? 'region' :
-              selectedStairId ? 'stair' :
-                northArrowEdit.selectedNorthArrowId ? 'northArrow' :
-                  clipFrameEdit.selectedClipFrameId ? 'clipFrame' :
-                    axisEdit.selectedAxisId ? 'axis' : null;
-
+  edit.deselect(); dimensionEdit.deselect(); elementEdit.deselect(); textEdit.deselect();
+  northArrowEdit.deselect(); clipFrameEdit.deselect(); axisEdit.deselect();
+  stairElementEdit.deselect();
+  setSelectedRegionId(null); setSelectedStairId(null); stairEdit.end();
+}, [edit, dimensionEdit, elementEdit, textEdit, northArrowEdit, clipFrameEdit, axisEdit, stairEdit, stairElementEdit]);
+  const selectedType: 'wall' | 'column' | 'window' | 'door' | 'dimension' | 'text' | 'region' | 'stair' | 'stairElement' | 'northArrow' | 'clipFrame' | 'axis' | null =
+  stairElementEdit.selectedId ? 'stairElement' :
+  edit.selectedWallId ? 'wall' :
+    elementEdit.selected ? elementEdit.selected.type :
+      dimensionEdit.selectedDimId ? 'dimension' :
+        textEdit.selectedTextId ? 'text' :
+          selectedRegionId ? 'region' :
+            selectedStairId ? 'stair' :
+              northArrowEdit.selectedNorthArrowId ? 'northArrow' :
+                clipFrameEdit.selectedClipFrameId ? 'clipFrame' :
+                  axisEdit.selectedAxisId ? 'axis' : null;
   const showRightSidebar = selectedType === 'wall';
   const showLeftSidebar = selectedType !== null;
 
