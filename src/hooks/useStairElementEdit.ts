@@ -80,7 +80,6 @@ const moveDrag = useCallback(
   },
   []
 );
-
   const endDrag = useCallback(() => {
     dragModeRef.current = null;
     dragStartRef.current = null;
