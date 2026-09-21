@@ -103,7 +103,7 @@ useEffect(() => {
     <div>
       {toolActive && (
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 8px' }}>
-          <button onClick={() => { props.onModeChange('view'); props.onCancelTool(); }} style={{ padding: '8px 14px', borderRadius: 8, border: '2px solid #f44', background: '#f44', color: '#fff', fontWeight: 700, cursor: 'pointer', fontSize: 14, boxShadow: '0 2px 6px rgba(0,0,0,0.2)' }}>✖ إلغاء الأداة</button>
+          <button onClick={() => { drawing.cancel(); props.onModeChange('view'); props.onCancelTool(); }} style={{ padding: '8px 14px', borderRadius: 8, border: '2px solid #f44', background: '#f44', color: '#fff', fontWeight: 700, cursor: 'pointer', fontSize: 14, boxShadow: '0 2px 6px rgba(0,0,0,0.2)' }}>✖ إلغاء الأداة</button>
           {drawing.lastWallId && props.mode === 'drawing' && (
             <input type="text" inputMode="decimal" dir="ltr" placeholder="القياس الديناميكي" style={{ width: '130px', padding: '8px', borderRadius: 8, border: '2px solid #06f', fontSize: 14, textAlign: 'center', direction: 'ltr' }} onKeyDown={(e) => { if (e.key === 'Enter') { const val = parseFloat(e.currentTarget.value); if (!isNaN(val)) { const wall = props.walls.find(w => w.id === drawing.lastWallId); if (wall) { const len = Math.hypot(wall.end.x - wall.start.x, wall.end.y - wall.start.y); if (len > 0) { const dirX = (wall.end.x - wall.start.x) / len; const dirY = (wall.end.y - wall.start.y) / len; const newEnd = { x: wall.start.x + dirX * val, y: wall.start.y + dirY * val }; props.onWallsChange(props.walls.map(w => w.id === wall.id ? { ...w, end: newEnd } : w)); } } } } }} />
           )}
