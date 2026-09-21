@@ -431,9 +431,8 @@ stairElementManager,
 stairElementEdit,
 showStairDialog,
 stairDialogConfig,
-handleOpenStairDialog,
 handleOpenMultiStairDialog,
+handleCloseStairDialog,        // ✅ مضاف
 handleInsertStepMode,
 handleInsertLandingMode,
 handlePlaceStairElement };
-}
