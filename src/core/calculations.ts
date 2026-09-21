@@ -1,5 +1,6 @@
 import type { Wall, Column, Window, Door, CalculationResults } from './types';
 import { distance } from './geometry';
+import { computeExteriorFootprintArea } from './footprintArea';
 
 export const wallLength = (w: Wall): number => distance(w.start, w.end);
 
@@ -46,11 +47,17 @@ export const columnArea = (c: Column, height: number): number =>
                                                         const netInt = int.reduce((s, w) => s + netWallArea(w, buildingHeight, windows, doors), 0);
 
                                                           let buildingArea = 0;
-                                                            if (ext.length >= 4) {
-                                                                const xs = ext.flatMap(w => [w.start.x, w.end.x]);
-                                                                    const ys = ext.flatMap(w => [w.start.y, w.end.y]);
-                                                                        buildingArea = (Math.max(...xs) - Math.min(...xs)) * (Math.max(...ys) - Math.min(...ys));
-                                                                          }
+if (ext.length >= 4) {
+  // ✅ Shoelace الدقيق (يدعم L, U وغيرها)
+  buildingArea = computeExteriorFootprintArea(ext);
+
+  // Fallback: Bounding box لو فشل التتبع
+  if (buildingArea === 0) {
+    const xs = ext.flatMap(w => [w.start.x, w.end.x]);
+    const ys = ext.flatMap(w => [w.start.y, w.end.y]);
+    buildingArea = (Math.max(...xs) - Math.min(...xs)) * (Math.max(...ys) - Math.min(...ys));
+  }
+}
 
                                                                             return {
                                                                                 buildingArea,
