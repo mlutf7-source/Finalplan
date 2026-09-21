@@ -358,7 +358,7 @@ export default function App() {
       mode={state.mode}
       drawingType={state.drawingType}
       onModeChange={state.setMode}
-      onCancelTool={() => state.setMode('view')}
+      onCancelTool={() => { state.setMode('view'); state.setDrawingType(null); }}
       dimensions={state.dimensions}
       onAddDimension={state.handleAddDimension}
       onDimensionsChange={state.handleDimensionsChange}
