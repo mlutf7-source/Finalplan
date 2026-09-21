@@ -178,10 +178,10 @@ if (layers.stairs && stairElements.length > 0) {
     }
     if (downPointRef.current?.type === 'clipFrameEdit') { clipFrameEdit.moveDrag(pt.world); return; }
     if (downPointRef.current?.type === 'axisEdit') { axisEdit.moveDrag(pt.world); return; }
-    if (downPointRef.current?.type === 'stairElementEdit') {
-  stairElementEdit.moveDrag(pt.world, stairElements, onUpdateStairElement);
-  return;
-    }
+      if (downPointRef.current?.type === 'stairElementEdit') {
+stairElementEdit.moveDrag(pt.world, stairElements, onUpdateStairElement, walls);
+return;
+      }
     if (stairDragCandidateRef.current && downPointRef.current?.type === 'stairCandidate') { const candidate = stairDragCandidateRef.current; const distMoved = Math.hypot(pt.world.x - candidate.pt.x, pt.world.y - candidate.pt.y); if (distMoved > 0.05) { stairEdit.start(candidate.pt, candidate.stair, 'move'); stairDragCandidateRef.current = null; downPointRef.current = { world: pt.world, type: 'stairEdit' }; return; } else { return; } }
     if (mode === 'drawing' && drawing.isDrawing) { drawing.move(pt.world); return; }
     if (mode === 'dimension' && dimensionMode.isActive) { dimensionMode.move(pt.world); return; }
