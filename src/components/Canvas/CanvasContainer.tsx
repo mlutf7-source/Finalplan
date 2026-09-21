@@ -70,7 +70,8 @@ selectedStairElementId: string | null;
 onUpdateStairElement: (id: string, patch: Partial<StairElement>) => void;
 onRotateStairElement: (id: string) => void;
 onDeleteStairElement: (id: string) => void;
-stairElementEdit: any;   // ✅ مضاف — hook من useStairElementEdit
+onCopyStairElement: (id: string) => void;
+stairElementEdit: any;
 }
 
 export const CanvasContainer: React.FC<Props> = (props) => {
@@ -197,6 +198,8 @@ drawing.updateLastWallEnd(newEnd); } } } } }} />
           onDeleteText={() => { if (textEdit.selectedTextId) props.onDeleteText(textEdit.selectedTextId); textEdit.deselect(); }}
           onDeleteRegion={() => { if (selectedRegionId) props.onDeleteRegion(selectedRegionId); setSelectedRegionId(null); }}
           onDeleteStair={() => { if (selectedStairId) props.onDeleteStair(selectedStairId); setSelectedStairId(null); }}
+          onDeleteStairElement={() => { if (props.selectedStairElementId) props.onDeleteStairElement(props.selectedStairElementId); props.stairElementEdit.deselect(); }}
+onCopyStairElement={() => { if (props.selectedStairElementId) props.onCopyStairElement(props.selectedStairElementId); }}
           onDeleteAxis={() => { if (setup.axisEdit.selectedAxisId) props.onDeleteAxis(setup.axisEdit.selectedAxisId); setup.axisEdit.deselect(); }}
           onDeselectAll={deselectAll}
           selectedType={selectedType === 'northArrow' || selectedType === 'clipFrame' ? null : selectedType}
