@@ -123,15 +123,17 @@ export function useDrawing(walls: Wall[], axes: Axis[], onAdd: (w: Wall) => void
     if (faceSnap) {
       if (isAngleSnapped) {
         if (isHorizontal) {
-          if (Math.abs(faceSnap.point.y - originalStart.y) < STRAIGHT_TOLERANCE) {
-            end = faceSnap.point;
-            usedFaceSnap = true;
-          }
-        } else {
-          if (Math.abs(faceSnap.point.x - originalStart.x) < STRAIGHT_TOLERANCE) {
-            end = faceSnap.point;
-            usedFaceSnap = true;
-          }
+  end = {
+    x: faceSnap.point.x,
+    y: originalStart.y,
+  };
+  usedFaceSnap = true;
+} else {
+  end = {
+    x: originalStart.x,
+    y: faceSnap.point.y,
+  };
+  usedFaceSnap = true;
         }
       } else {
         end = faceSnap.point;
