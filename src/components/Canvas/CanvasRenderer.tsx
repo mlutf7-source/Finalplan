@@ -44,61 +44,87 @@ function lineIntersect(p1: Point, p2: Point, p3: Point, p4: Point): Point | null
 
 // ✅ حساب ركن Miter عند نقطة نهاية الجدار
 function computeMiter(wall: Wall, endpoint: Point, allWalls: Wall[]): { outer: Point; inner: Point } | null {
-  let otherWall: Wall | null = null;
-  for (const w of allWalls) {
-    if (w.id === wall.id) continue;
-    if (distance(w.start, endpoint) < CORNER_TOLERANCE || distance(w.end, endpoint) < CORNER_TOLERANCE) {
-      otherWall = w;
-      break;
-    }
-  }
+  const otherWall = allWalls.find(w =>
+    w.id !== wall.id &&
+    (
+      distance(w.start, endpoint) < CORNER_TOLERANCE ||
+      distance(w.end, endpoint) < CORNER_TOLERANCE
+    )
+  );
+
   if (!otherWall) return null;
 
   const dxW = wall.end.x - wall.start.x;
   const dyW = wall.end.y - wall.start.y;
   const lenW = Math.hypot(dxW, dyW);
-  if (lenW < 1e-9) return null;
-  const uxW = dxW / lenW;
-  const uyW = dyW / lenW;
 
   const dxV = otherWall.end.x - otherWall.start.x;
   const dyV = otherWall.end.y - otherWall.start.y;
   const lenV = Math.hypot(dxV, dyV);
-  if (lenV < 1e-9) return null;
+
+  if (lenW < 1e-9 || lenV < 1e-9) return null;
+
+  const uxW = dxW / lenW;
+  const uyW = dyW / lenW;
   const uxV = dxV / lenV;
   const uyV = dyV / lenV;
+
+  const cross = uxW * uyV - uyW * uxV;
+
+  // الجداران متوازيان أو شبه متوازيين → لا تستخدم Miter
+  if (Math.abs(cross) < 0.05) return null;
 
   const nxW = -uyW;
   const nyW = uxW;
   const nxV = -uyV;
   const nyV = uxV;
 
-  const signW = wall.normalSign ?? 1;
-  const signV = otherWall.normalSign ?? 1;
-  const hW = (wall.thickness / 2) * signW;
-  const hV = (otherWall.thickness / 2) * signV;
+  const hW = wall.thickness / 2;
+  const hV = otherWall.thickness / 2;
 
-  const wOuter1 = { x: endpoint.x + nxW * hW, y: endpoint.y + nyW * hW };
-  const wOuter2 = { x: wOuter1.x + uxW, y: wOuter1.y + uyW };
-  const wInner1 = { x: endpoint.x - nxW * hW, y: endpoint.y - nyW * hW };
-  const wInner2 = { x: wInner1.x + uxW, y: wInner1.y + uyW };
+  const intersections: Point[] = [];
 
-  const vOuter1 = { x: endpoint.x + nxV * hV, y: endpoint.y + nyV * hV };
-  const vOuter2 = { x: vOuter1.x + uxV, y: vOuter1.y + uyV };
-  const vInner1 = { x: endpoint.x - nxV * hV, y: endpoint.y - nyV * hV };
-  const vInner2 = { x: vInner1.x + uxV, y: vInner1.y + uyV };
+  const offsetsW = [hW, -hW];
+  const offsetsV = [hV, -hV];
 
-  const candidates = [
-    lineIntersect(wOuter1, wOuter2, vOuter1, vOuter2),
-    lineIntersect(wOuter1, wOuter2, vInner1, vInner2),
-    lineIntersect(wInner1, wInner2, vOuter1, vOuter2),
-    lineIntersect(wInner1, wInner2, vInner1, vInner2),
-  ].filter((p): p is Point => p !== null);
+  for (const ow of offsetsW) {
+    for (const ov of offsetsV) {
+      const p1 = {
+        x: endpoint.x + nxW * ow,
+        y: endpoint.y + nyW * ow,
+      };
 
-  if (candidates.length < 2) return null;
+      const p2 = {
+        x: endpoint.x + nxV * ov,
+        y: endpoint.y + nyV * ov,
+      };
 
-  candidates.sort((a, b) => distance(a, endpoint) - distance(b, endpoint));
-  return { outer: candidates[0], inner: candidates[candidates.length - 1] };
+      const i = lineIntersect(
+        p1,
+        { x: p1.x + uxW, y: p1.y + uyW },
+        p2,
+        { x: p2.x + uxV, y: p2.y + uyV }
+      );
+
+      if (i) intersections.push(i);
+    }
+  }
+
+  if (intersections.length < 2) return null;
+
+  // نختار نقطتي التقاطع الأقرب للركن الحقيقي.
+  // هذا يمنع اختيار التقاطع البعيد الذي كان يسبب شكل المثلث.
+  intersections.sort(
+    (a, b) => distance(a, endpoint) - distance(b, endpoint)
+  );
+
+  const first = intersections[0];
+  const second = intersections[1];
+
+  return {
+    outer: first,
+    inner: second,
+  };
 }
 
 // ✅ حساب زوايا الجدار للرسم (مع Miter)
