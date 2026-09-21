@@ -1,4 +1,4 @@
-import type { Point, StairElement } from './types';
+import type { Point, StairElement, Wall } from './types';
 import { distance } from './geometry';
 
 export function getElementCenter(el: StairElement): Point {
@@ -44,7 +44,7 @@ export function rotateElement(el: StairElement, angle: number): StairElement {
   return { ...el, rotation: (el.rotation + angle) % (Math.PI * 2) };
 }
 
-// ✅ Snap شامل (خيار ج) — يلتقط أقرب نقطة من حواف العناصر الأخرى
+// ✅ Snap شامل (خيار ج) — زوايا ↔ زوايا، زوايا ↔ حواف، حواف متوازية
 export function snapElementToOthers(
   el: StairElement,
   others: StairElement[],
@@ -69,7 +69,7 @@ export function snapElementToOthers(
       q: otherCorners[(i + 1) % otherCorners.length],
     }));
 
-    // زاوية ← زاوية
+    // 1️⃣ زاوية ↔ زاوية
     for (const c1 of corners) {
       for (const c2 of otherCorners) {
         const d = distance(c1, c2);
@@ -81,7 +81,7 @@ export function snapElementToOthers(
       }
     }
 
-    // زاوية ← حافة (أقرب نقطة على الحافة)
+    // 2️⃣ زاوية ↔ حافة
     for (const c1 of corners) {
       for (const edge of otherEdges) {
         const cp = closestPointOnSegmentLocal(c1, edge.p, edge.q);
@@ -94,7 +94,7 @@ export function snapElementToOthers(
       }
     }
 
-    // حافة ← زاوية
+    // 3️⃣ حافة ↔ زاوية
     for (const edge of edges) {
       for (const c2 of otherCorners) {
         const cp = closestPointOnSegmentLocal(c2, edge.p, edge.q);
@@ -104,6 +104,74 @@ export function snapElementToOthers(
           bestDx = c2.x - cp.x;
           bestDy = c2.y - cp.y;
         }
+      }
+    }
+
+    // 4️⃣ حافة ↔ حافة (توازي / استقامة) ✅ جديد
+    for (const e1 of edges) {
+      const dir1x = e1.q.x - e1.p.x;
+      const dir1y = e1.q.y - e1.p.y;
+      const len1 = Math.hypot(dir1x, dir1y);
+      if (len1 < 1e-9) continue;
+      const u1x = dir1x / len1;
+      const u1y = dir1y / len1;
+
+      for (const e2 of otherEdges) {
+        const dir2x = e2.q.x - e2.p.x;
+        const dir2y = e2.q.y - e2.p.y;
+        const len2 = Math.hypot(dir2x, dir2y);
+        if (len2 < 1e-9) continue;
+        const u2x = dir2x / len2;
+        const u2y = dir2y / len2;
+
+        // فحص التوازي
+        const cross = u1x * u2y - u1y * u2x;
+        if (Math.abs(cross) > 0.1) continue;
+
+        // المسافة العمودية من منتصف e1 إلى خط e2
+        const midX = (e1.p.x + e1.q.x) / 2;
+        const midY = (e1.p.y + e1.q.y) / 2;
+        const nx = -u2y;
+        const ny = u2x;
+        const d = (midX - e2.p.x) * nx + (midY - e2.p.y) * ny;
+        const absD = Math.abs(d);
+
+        if (absD < bestDist && absD > 1e-6) {
+          bestDist = absD;
+          bestDx = -d * nx;
+          bestDy = -d * ny;
+        }
+      }
+    }
+  }
+
+  if (bestDist < tolerance) {
+    return { ...el, position: { x: el.position.x + bestDx, y: el.position.y + bestDy } };
+  }
+  return el;
+}
+
+// ✅ Snap مع الجدران — أي زاوية من العنصر تلتصق بأي نقطة على أي جدار
+export function snapElementToWalls(
+  el: StairElement,
+  walls: Wall[],
+  tolerance: number = 0.15,
+): StairElement {
+  if (walls.length === 0) return el;
+  const corners = getElementCorners(el);
+
+  let bestDx = 0;
+  let bestDy = 0;
+  let bestDist = tolerance;
+
+  for (const corner of corners) {
+    for (const wall of walls) {
+      const cp = closestPointOnSegmentLocal(corner, wall.start, wall.end);
+      const d = distance(corner, cp);
+      if (d < bestDist && d > 1e-6) {
+        bestDist = d;
+        bestDx = cp.x - corner.x;
+        bestDy = cp.y - corner.y;
       }
     }
   }
