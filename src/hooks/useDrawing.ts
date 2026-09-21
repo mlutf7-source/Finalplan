@@ -24,7 +24,11 @@ export function useDrawing(walls: Wall[], axes: Axis[], onAdd: (w: Wall) => void
   ref.current = d;
   const [lastWallId, setLastWallId] = useState<string | null>(null);
 
-  const reset = useCallback(() => setD({ active: false, type: null, originalStart: null, start: null, end: null }), []);
+  const reset = useCallback(() => {
+    const newState: DrawState = { active: false, type: null, originalStart: null, start: null, end: null };
+    ref.current = newState;
+    setD(newState);
+  }, []);
 
   const snapToAxis = useCallback((originalStart: Point, end: Point, type: DrawingType): { start: Point; end: Point } => {
     if (axes.length === 0) return { start: originalStart, end };
@@ -46,65 +50,80 @@ export function useDrawing(walls: Wall[], axes: Axis[], onAdd: (w: Wall) => void
     return { start: originalStart, end };
   }, [axes]);
 
+  // ✅ الرسم المستمر: نقطة البداية ثابتة بعد أول جدار
   const begin = useCallback((pt: Point, type: DrawingType) => {
     if (!type) return;
+    const cur = ref.current;
+
+    // إذا كنا في وضع الرسم المستمر (بعد جدار مُنشأ) → لا نعيد التعيين، فقط نُحدّث النهاية
+    if (cur.active && cur.start && cur.type) {
+      const newState = { ...cur, end: pt };
+      ref.current = newState;
+      setD(newState);
+      return;
+    }
+
     const snap = findSnapToFace(pt, walls, undefined, SNAP);
     const start = snap?.point ?? pt;
-    setD({ active: true, type, originalStart: start, start, end: pt });
+    const newState: DrawState = { active: true, type, originalStart: start, start, end: pt };
+    ref.current = newState;
+    setD(newState);
   }, [walls]);
 
   const move = useCallback((pt: Point) => {
-    setD(prev => {
-      if (!prev.active || !prev.originalStart || !prev.type) return prev;
-      const originalStart = prev.originalStart;
-      const angle = getAngle(originalStart, pt);
-      const snappedAngle = snapAngle(angle);
-      const isHorizontal = Math.abs(snappedAngle) < 0.001 || Math.abs(snappedAngle - Math.PI) < 0.001;
-      const isAngleSnapped = snappedAngle !== angle;
+    const cur = ref.current;
+    if (!cur.active || !cur.originalStart || !cur.type) return;
 
-      // 1. تثبيت الزاوية (أفقي أو رأسي)
-      let end: Point;
+    const originalStart = cur.originalStart;
+    const angle = getAngle(originalStart, pt);
+    const snappedAngle = snapAngle(angle);
+    const isHorizontal = Math.abs(snappedAngle) < 0.001 || Math.abs(snappedAngle - Math.PI) < 0.001;
+    const isAngleSnapped = snappedAngle !== angle;
+
+    // 1. تثبيت الزاوية (أفقي أو رأسي)
+    let end: Point;
+    if (isAngleSnapped) {
+      end = isHorizontal
+        ? { x: pt.x, y: originalStart.y }
+        : { x: originalStart.x, y: pt.y };
+    } else {
+      end = pt;
+    }
+
+    // 2. محاولة التقاط الوجه (بشرط الحفاظ على الاستقامة)
+    const faceSnap = findSnapToFace(end, walls, undefined, SNAP);
+    let usedFaceSnap = false;
+    if (faceSnap) {
       if (isAngleSnapped) {
-        end = isHorizontal
-          ? { x: pt.x, y: originalStart.y }
-          : { x: originalStart.x, y: pt.y };
-      } else {
-        end = pt;
-      }
-
-      // 2. محاولة التقاط الوجه (بشرط الحفاظ على الاستقامة)
-      const faceSnap = findSnapToFace(end, walls, undefined, SNAP);
-      let usedFaceSnap = false;
-      if (faceSnap) {
-        if (isAngleSnapped) {
-          // ✅ إذا تم تثبيت الزاوية، نتحقق من التوافق مع الخط
-          if (isHorizontal) {
-            // جدار أفقي: يجب أن يكون y الملتقط = y البداية (بفارق صغير)
-            if (Math.abs(faceSnap.point.y - originalStart.y) < STRAIGHT_TOLERANCE) {
-              end = faceSnap.point;
-              usedFaceSnap = true;
-            }
-          } else {
-            // جدار رأسي: يجب أن يكون x الملتقط = x البداية
-            if (Math.abs(faceSnap.point.x - originalStart.x) < STRAIGHT_TOLERANCE) {
-              end = faceSnap.point;
-              usedFaceSnap = true;
-            }
+        // إذا تم تثبيت الزاوية، نتحقق من التوافق مع الخط
+        if (isHorizontal) {
+          if (Math.abs(faceSnap.point.y - originalStart.y) < STRAIGHT_TOLERANCE) {
+            end = faceSnap.point;
+            usedFaceSnap = true;
           }
         } else {
-          // إذا لم يتم تثبيت الزاوية، نستخدم snap الوجه مباشرة
-          end = faceSnap.point;
-          usedFaceSnap = true;
+          if (Math.abs(faceSnap.point.x - originalStart.x) < STRAIGHT_TOLERANCE) {
+            end = faceSnap.point;
+            usedFaceSnap = true;
+          }
         }
+      } else {
+        end = faceSnap.point;
+        usedFaceSnap = true;
       }
+    }
 
-      // 3. محاولة التقاط المحور (فقط إذا لم يُستخدم snap الوجه)
-      if (!usedFaceSnap) {
-        const result = snapToAxis(originalStart, end, prev.type);
-        return { ...prev, start: result.start, end: result.end };
-      }
-      return { ...prev, end };
-    });
+    // 3. محاولة التقاط المحور (فقط إذا لم يُستخدم snap الوجه)
+    if (!usedFaceSnap) {
+      const result = snapToAxis(originalStart, end, cur.type);
+      const newState = { ...cur, start: result.start, end: result.end };
+      ref.current = newState;
+      setD(newState);
+      return;
+    }
+    const newState = { ...cur, end };
+    ref.current = newState;
+    setD(newState);
   }, [walls, snapToAxis]);
 
   const finishWithLength = useCallback((length: number) => {
@@ -121,18 +140,44 @@ export function useDrawing(walls: Wall[], axes: Axis[], onAdd: (w: Wall) => void
     const newWall: Wall = { id: uuidv4(), start: { ...cur.start }, end, thickness: cur.type === 'exterior' ? 0.3 : 0.2, type: cur.type as WallType, normalSign: 1, lockDirection: false, lockLength: false, lockMove: true };
     onAdd(newWall);
     setLastWallId(newWall.id);
-    reset();
-  }, [onAdd, reset]);
+
+    // ✅ رسم مستمر: الجدار التالي يبدأ من نهاية الجدار الحالي
+    const newState: DrawState = {
+      active: true,
+      type: cur.type,
+      originalStart: { ...end },
+      start: { ...end },
+      end: { ...end },
+    };
+    ref.current = newState;
+    setD(newState);
+  }, [onAdd]);
 
   const finish = useCallback(() => {
     const cur = ref.current;
     if (!cur.active || !cur.start || !cur.end || !cur.type) { reset(); return; }
-    if (distance(cur.start, cur.end) < 0.1) { reset(); return; }
+    if (distance(cur.start, cur.end) < 0.1) {
+      // جدار قصير جداً — نُعيد النهاية لتكون نفس البداية
+      const newState = { ...cur, end: { ...cur.start } };
+      ref.current = newState;
+      setD(newState);
+      return;
+    }
     const newWall: Wall = { id: uuidv4(), start: { ...cur.start }, end: { ...cur.end }, thickness: cur.type === 'exterior' ? 0.3 : 0.2, type: cur.type as WallType, normalSign: 1, lockDirection: false, lockLength: false, lockMove: true };
     onAdd(newWall);
     setLastWallId(newWall.id);
-    reset();
+
+    // ✅ رسم مستمر: الجدار التالي يبدأ من نهاية الجدار الحالي
+    const newState: DrawState = {
+      active: true,
+      type: cur.type,
+      originalStart: { ...cur.end },
+      start: { ...cur.end },
+      end: { ...cur.end },
+    };
+    ref.current = newState;
+    setD(newState);
   }, [onAdd, reset]);
 
   return { isDrawing: d.active, drawingType: d.type, tempStart: d.start, tempEnd: d.end, lastWallId, begin, move, finish, finishWithLength, cancel: reset };
-        }
+}
