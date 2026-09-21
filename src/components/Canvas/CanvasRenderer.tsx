@@ -42,7 +42,7 @@ function lineIntersect(p1: Point, p2: Point, p3: Point, p4: Point): Point | null
   return { x: p1.x + ua * (p2.x - p1.x), y: p1.y + ua * (p2.y - p1.y) };
 }
 
-// ✅ حساب زوايا الجدار مع Miter Joint
+// ✅ حساب زوايا الجدار مع Miter Joint (يحاول كلا الجانبين)
 function computeMiteredCorners(wall: Wall, allWalls: Wall[]): Point[] {
   const rect = wallRectangle(wall);
   const corners = rect.corners.map(c => ({ ...c }));
@@ -62,17 +62,15 @@ function computeMiteredCorners(wall: Wall, allWalls: Wall[]): Point[] {
     const olen = Math.hypot(odx, ody);
     if (olen < 1e-9) continue;
 
-    const odirX = odx / olen;
-    const odirY = ody / olen;
-    const onX = -odirY;
-    const onY = odirX;
-    const osign = other.normalSign ?? 1;
-    const oOffX = onX * other.thickness * osign;
-    const oOffY = onY * other.thickness * osign;
+    // ✅ الاتجاه العمودي على الجدار الآخر
+    const onX = -ody / olen;
+    const onY = odx / olen;
 
-    // الحافة المزاحة للجدار الآخر (كخط)
-    const otherOffsetA = { x: other.start.x + oOffX, y: other.start.y + oOffY };
-    const otherOffsetB = { x: other.end.x + oOffX, y: other.end.y + oOffY };
+    // ✅ الحافتان المُزاحتان للجدار الآخر (الجانبان)
+    const oA_pos = { x: other.start.x + onX * other.thickness, y: other.start.y + onY * other.thickness };
+    const oB_pos = { x: other.end.x + onX * other.thickness, y: other.end.y + onY * other.thickness };
+    const oA_neg = { x: other.start.x - onX * other.thickness, y: other.start.y - onY * other.thickness };
+    const oB_neg = { x: other.end.x - onX * other.thickness, y: other.end.y - onY * other.thickness };
 
     const startShared =
       distance(wall.start, other.start) < CORNER_TOLERANCE ||
@@ -81,32 +79,32 @@ function computeMiteredCorners(wall: Wall, allWalls: Wall[]): Point[] {
       distance(wall.end, other.start) < CORNER_TOLERANCE ||
       distance(wall.end, other.end) < CORNER_TOLERANCE;
 
-    // ✅ نقطة التقاء عند start
-    if (startShared) {
-      const offsetCorner = corners[3]; // wall.start + offset
-      const lineA = offsetCorner;
+    // ✅ دالة مساعدة: تجرب التقاطع مع كلا الحافتين وتختار الأقرب للنقطة المشتركة
+    const tryMiter = (cornerIndex: number, sharedPt: Point) => {
+      const offsetCorner = corners[cornerIndex];
       const lineB = { x: offsetCorner.x + dirX, y: offsetCorner.y + dirY };
-      const M = lineIntersect(lineA, lineB, otherOffsetA, otherOffsetB);
-      if (M && distance(M, wall.start) < Math.max(wall.thickness, other.thickness) * 5) {
-        corners[3] = M;
-      }
-    }
 
-    // ✅ نقطة التقاء عند end
-    if (endShared) {
-      const offsetCorner = corners[2]; // wall.end + offset
-      const lineA = offsetCorner;
-      const lineB = { x: offsetCorner.x + dirX, y: offsetCorner.y + dirY };
-      const M = lineIntersect(lineA, lineB, otherOffsetA, otherOffsetB);
-      if (M && distance(M, wall.end) < Math.max(wall.thickness, other.thickness) * 5) {
-        corners[2] = M;
+      const m_pos = lineIntersect(offsetCorner, lineB, oA_pos, oB_pos);
+      const m_neg = lineIntersect(offsetCorner, lineB, oA_neg, oB_neg);
+
+      const d_pos = m_pos ? distance(m_pos, sharedPt) : Infinity;
+      const d_neg = m_neg ? distance(m_neg, sharedPt) : Infinity;
+
+      const best = d_pos <= d_neg ? m_pos : m_neg;
+      const bestDist = Math.min(d_pos, d_neg);
+
+      // ✅ عتبة أدق: thickness * 2 بدلاً من * 5
+      if (best && bestDist < Math.max(wall.thickness, other.thickness) * 2) {
+        corners[cornerIndex] = best;
       }
-    }
+    };
+
+    if (startShared) tryMiter(3, wall.start);
+    if (endShared) tryMiter(2, wall.end);
   }
 
   return corners;
 }
-
 export const CanvasRenderer: React.FC<Props> = React.memo(({
   walls,
   view,
