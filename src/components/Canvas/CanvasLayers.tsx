@@ -13,7 +13,9 @@ import { NorthArrowEditLayer } from './NorthArrowEditLayer';
 import { ClipFrameLayer } from './ClipFrameLayer';
 import { ClipFrameEditLayer } from './ClipFrameEditLayer';
 import { AxisEditLayer } from './AxisEditLayer';
-import type { Wall, CanvasView, Column, Window, Door, TextElement, Stair, NorthArrow, ClipFrame, PlanImage, Axis } from '../../core/types';
+import { StairElementLayer } from './StairElementLayer';
+import { StairElementEditLayer } from './StairElementEditLayer';
+import type { Wall, CanvasView, Column, Window, Door, TextElement, Stair, NorthArrow, ClipFrame, PlanImage, Axis, StairElement } from '../../core/types';
 import type { Dimension } from '../../core/dimensionTypes';
 import type { RoomRegion } from '../../core/regionTypes';
 
@@ -26,6 +28,8 @@ interface Props {
   dimensions: Dimension[]; dimensionFontSize: number; selectedDimId: string | null; scale?: number; planImage?: PlanImage | null;
   showGrid?: boolean;
   axisBubbleSize?: number;
+  stairElements: StairElement[];
+selectedStairElementId: string | null;
 }
 
 export const CanvasLayers: React.FC<Props> = React.memo((props) => {
@@ -60,6 +64,19 @@ export const CanvasLayers: React.FC<Props> = React.memo((props) => {
       <ClipFrameLayer clipFrames={clipFrames} view={view} width={width} height={height} selectedId={selectedClipFrameId} scale={scale} />
       <ClipFrameEditLayer selectedClipFrame={clipFrames.find(f => f.id === selectedClipFrameId) ?? null} view={view} width={width} height={height} />
       <AxisEditLayer selectedAxis={axes.find(a => a.id === selectedAxisId) ?? null} view={view} width={width} height={height} />
+      <StairElementLayer
+  stairElements={stairElements}
+  view={view}
+  width={width}
+  height={height}
+  scale={scale}
+/>
+<StairElementEditLayer
+  selectedElement={stairElements.find(el => el.id === selectedStairElementId) ?? null}
+  view={view}
+  width={width}
+  height={height}
+/>
     </>
   );
 });
