@@ -1,10 +1,11 @@
 import { useRef, useCallback } from 'react';
-import type { Wall, AppMode, DrawingType, TextElement, Stair, NorthArrow, Point, PlanImage, Axis } from '../core/types';
+import type { Wall, AppMode, DrawingType, TextElement, Stair, NorthArrow, Point, PlanImage, Axis, StairElement } from '../core/types';
 import type { Dimension } from '../core/dimensionTypes';
 import type { RoomRegion, RegionType } from '../core/regionTypes';
 import type { LayersState } from '../components/Toolbar/LayersPanel';
 import { screenToWorld, PX_PER_METER } from '../core/geometry';
 import { useCanvasSetup } from './useCanvasSetup';
+import { getElementCorners, isPointInElement } from '../core/stairElementGeometry';
 
 type SetupReturn = ReturnType<typeof useCanvasSetup>;
 
@@ -16,6 +17,17 @@ interface EventsProps {
   onAddText: (position: Point, text: string) => void; setup: SetupReturn;
   planImage?: PlanImage | null; onPlanImageChange?: (img: PlanImage) => void; onImageSelect?: (id: string | null) => void;
   axes: Axis[];
+  stairElements: StairElement[];
+stairElementEdit: {
+  selectedId: string | null;
+  setSelectedId: (id: string | null) => void;
+  hitTest: (pt: Point, el: any) => 'move' | 'rotate' | null;
+  select: (el: any, pt: Point, mode: any) => void;
+  deselect: () => void;
+  moveDrag: (pt: Point, all: any[], onUpdate: any) => void;
+  endDrag: () => void;
+};
+onUpdateStairElement: (id: string, patch: Partial<StairElement>) => void;
 }
 
 function isPointInPolygon(pt: Point, polygon: Point[]): boolean {
@@ -35,7 +47,7 @@ export function useCanvasEvents({
   onAddStairAtPoint, onUpdateStair, onPlaceColumn, onPlaceWindow, onPlaceDoor, onPlaceRegion, onAddText, setup,
   planImage, onPlanImageChange, onImageSelect, axes,
 }: EventsProps) {
-  const { containerRef, view, setZoom, pan, setView, drawing, edit, dimensionMode, dimensionEdit, elementEdit, textEdit, stairEdit, northArrowEdit, clipFrameEdit, axisEdit, setSelectedRegionId, setSelectedStairId } = setup;
+  const { containerRef, view, setZoom, pan, setView, drawing, edit, dimensionMode, dimensionEdit, elementEdit, textEdit, stairEdit, northArrowEdit, clipFrameEdit, axisEdit, setSelectedRegionId, setSelectedStairId, stairElements, stairElementEdit, onUpdateStairElement } = setup;
   const pointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
   const pinchRef = useRef<{ dist: number; zoom: number; cx: number; cy: number } | null>(null);
   const downPointRef = useRef<{ world: { x: number; y: number }; type: string } | null>(null);
@@ -121,7 +133,17 @@ if (planImage && mode === 'view') {
     if (elementHit) { const layerKey = elementHit.type === 'column' ? 'columns' : elementHit.type === 'window' ? 'windows' : 'doors'; if (layers[layerKey]) { const dragMode = elementEdit.detectMode(pt.world, elementHit.id, elementHit.type); elementEdit.select(elementHit.id, elementHit.type, pt.world, dragMode); downPointRef.current = { world: pt.world, type: 'elementEdit' }; return; } }
     if (layers.dimensions) { if (dimensionEdit.selectedDimId) { const selectedDim = dimensions.find(d => d.id === dimensionEdit.selectedDimId); if (selectedDim) { const hit = dimensionEdit.hitTest(pt.world, selectedDim); if (hit !== null) { dimensionEdit.select(selectedDim.id, hit, pt.world); downPointRef.current = { world: pt.world, type: 'dimensionEdit' }; return; } } } if (dimensions.length > 0) { const hitDim = dimensions.map(dim => ({ dim, type: dimensionEdit.hitTest(pt.world, dim) })).find(h => h.type !== null); if (hitDim && hitDim.type) { dimensionEdit.select(hitDim.dim.id, hitDim.type, pt.world); downPointRef.current = { world: pt.world, type: 'dimensionEdit' }; return; } } }
     if (layers.walls) { if (edit.selectedWallId) { const selectedWall = walls.find(w => w.id === edit.selectedWallId); if (selectedWall) { const hit = edit.hitTest(pt.world, selectedWall); if (hit !== 'none') { edit.select(selectedWall.id, hit, pt.world); downPointRef.current = { world: pt.world, type: 'edit' }; onModeChange('edit'); return; } } } const hitWall = walls.map(w => ({ w, t: edit.hitTest(pt.world, w) })).find(h => h.t !== 'none'); if (hitWall) { edit.select(hitWall.w.id, hitWall.t, pt.world); downPointRef.current = { world: pt.world, type: 'edit' }; onModeChange('edit'); return; } }
-
+// ✅ النقر على عناصر السلم الجديدة
+if (layers.stairs && stairElements.length > 0) {
+  for (const el of stairElements) {
+    const hitMode = stairElementEdit.hitTest(pt.world, el);
+    if (hitMode) {
+      stairElementEdit.select(el, pt.world, hitMode);
+      downPointRef.current = { world: pt.world, type: 'stairElementEdit' };
+      return;
+    }
+  }
+}
     // ✅ فحص المحاور في النهاية (بعد كل العناصر الأخرى) - حتى لا يتسبب في "قفز" العناصر
     if (mode === 'view' && layers.axes) {
       const hitAxis = axes.find(a => axisEdit.hitTest(pt.world, a));
@@ -133,7 +155,8 @@ if (planImage && mode === 'view') {
     }
 
     downPointRef.current = { world: pt.world, type: 'pan' };
-  }, [mode, drawingType, walls, dimensions, layers, texts, regions, stairs, northArrows, axes, getPoint, drawing, edit, dimensionMode, dimensionEdit, elementEdit, textEdit, northArrowEdit, clipFrameEdit, axisEdit, onModeChange, view, onAddStairAtPoint, onUpdateStair, onPlaceColumn, onPlaceWindow, onPlaceDoor, onPlaceRegion, onAddText, containerRef, setSelectedRegionId, setSelectedStairId, setup, planImage, onPlanImageChange, onImageSelect]);
+  }, [mode, drawingType, walls, dimensions, layers, texts, regions, stairs, northArrows, axes, getPoint, drawing, edit, dimensionMode, dimensionEdit, elementEdit, textEdit, northArrowEdit, clipFrameEdit, axisEdit, onModeChange, view, onAddStairAtPoint, onUpdateStair, onPlaceColumn, onPlaceWindow, onPlaceDoor, onPlaceRegion, onAddText, containerRef, setSelectedRegionId, setSelectedStairId, setup, planImage, onPlanImageChange, onImageSelect,stairElements, stairElementEdit, onUpdateStairElement
+     ]);
 
   const onPointerMove = useCallback((e: React.PointerEvent) => {
     const rect = containerRef.current?.getBoundingClientRect(); if (!rect) return;
@@ -155,6 +178,10 @@ if (planImage && mode === 'view') {
     }
     if (downPointRef.current?.type === 'clipFrameEdit') { clipFrameEdit.moveDrag(pt.world); return; }
     if (downPointRef.current?.type === 'axisEdit') { axisEdit.moveDrag(pt.world); return; }
+    if (downPointRef.current?.type === 'stairElementEdit') {
+  stairElementEdit.moveDrag(pt.world, stairElements, onUpdateStairElement);
+  return;
+    }
     if (stairDragCandidateRef.current && downPointRef.current?.type === 'stairCandidate') { const candidate = stairDragCandidateRef.current; const distMoved = Math.hypot(pt.world.x - candidate.pt.x, pt.world.y - candidate.pt.y); if (distMoved > 0.05) { stairEdit.start(candidate.pt, candidate.stair, 'move'); stairDragCandidateRef.current = null; downPointRef.current = { world: pt.world, type: 'stairEdit' }; return; } else { return; } }
     if (mode === 'drawing' && drawing.isDrawing) { drawing.move(pt.world); return; }
     if (mode === 'dimension' && dimensionMode.isActive) { dimensionMode.move(pt.world); return; }
@@ -176,7 +203,7 @@ if (planImage && mode === 'view') {
     if (drawing.isDrawing) drawing.finish();
     if (dimensionMode.isActive) dimensionMode.finish();
     if (edit.isEditing) edit.endEdit();
-    elementEdit.endDrag(); textEdit.endDrag(); stairEdit.end(); northArrowEdit.endDrag(); clipFrameEdit.endDrag(); axisEdit.endDrag();
+    elementEdit.endDrag(); textEdit.endDrag(); stairEdit.end(); northArrowEdit.endDrag(); clipFrameEdit.endDrag(); axisEdit.endDrag(); stairElementEdit.endDrag();
   }, [drawing, dimensionMode, edit, elementEdit, textEdit, stairEdit, northArrowEdit, clipFrameEdit, axisEdit]);
 
   return { onPointerDown, onPointerMove, onPointerUp, zoomAtPoint };
