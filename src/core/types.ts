@@ -47,3 +47,16 @@ export interface Axis {
   length: number;       // طول خط المحور
   offset: number;       // الإزاحة العمودية (موجب = يمين/أعلى)
 }
+// ✅ عنصر سلم فردي (جديد - لا يمس Stair القديم)
+export interface StairElement {
+  id: string;
+  type: 'step' | 'landing';
+  position: Point;      // مركز العنصر
+  width: number;        // العرض
+  length: number;       // الطول (اتجاه الصعود)
+  rotation: number;     // زاوية الدوران
+  // خاص بالسحبة (step):
+  treadDepth?: number;  // عمق الدرجة
+  riserHeight?: number; // ارتفاع الدرجة
+  stepCount?: number;   // عدد الدرجات (يُحسب من length/treadDepth)
+}
