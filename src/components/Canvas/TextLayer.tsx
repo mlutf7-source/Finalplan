@@ -33,7 +33,7 @@ const fontSizePx = text.fontSize * PX_PER_METER * view.zoom * 1.3; // ✅ زيا
                                                                             ctx.translate(pos.x, pos.y);
                                                                                   ctx.rotate(text.rotation || 0);
                                                                                     ctx.fillStyle = text.color;
-ctx.font = `500 ${fontSizePx}px ${text.fontFamily || 'Tajawal'}`;                                                                                    ctx.textAlign = 'center';
+ctx.font = `500 ${fontSizePx}px ${text.fontFamily || '"Traditional Arabic", "Noto Naskh Arabic", serif'}`;                                                                                    ctx.textAlign = 'center';
                                                                                     ctx.textBaseline = 'middle';
                                                                                     // ✅ رسم النص كاملاً ككلمة واحدة (يدعم العربية بشكل صحيح)
                                                                                     ctx.fillText(text.text, 0, 0);                                   
