@@ -7,8 +7,6 @@ import { v4 as uuidv4 } from 'uuid';
 // ✅ مسافة قريبة جداً لالتقاط الوجه (10 سم بدل 30)
 const SNAP = 0.1;
 const SNAP_TO_AXIS = 0.5;
-// ✅ المسافة المسموحة للانحراف العمودي (5 سم) - للحفاظ على استقامة الجدار
-const STRAIGHT_TOLERANCE = 0.05;
 
 interface DrawState {
   active: boolean;
@@ -16,19 +14,6 @@ interface DrawState {
   originalStart: Point | null;
   start: Point | null;
   end: Point | null;
-}
-
-// ✅ دالة مساعدة: تدفع نقطة البداية للجدار التالي للداخل بمقدار سماكة الجدار السابق
-function pushStartInsideWall(endPoint: Point, wall: Wall): Point {
-  const dx = wall.end.x - wall.start.x;
-  const dy = wall.end.y - wall.start.y;
-  const len = Math.hypot(dx, dy) || 1;
-  const ux = dx / len;
-  const uy = dy / len;
-  return {
-    x: endPoint.x - ux * wall.thickness,
-    y: endPoint.y - uy * wall.thickness,
-  };
 }
 
 export function useDrawing(walls: Wall[], axes: Axis[], onAdd: (w: Wall) => void) {
@@ -58,15 +43,14 @@ export function useDrawing(walls: Wall[], axes: Axis[], onAdd: (w: Wall) => void
         ref.current = newState;
         setD(newState);
       } else {
-        // نعود إلى نهاية آخر جدار متبقٍّ (مع الدفع للداخل)
+        // نعود إلى نهاية آخر جدار متبقٍّ
         const lastWall = walls[walls.length - 1];
-        const pushed = pushStartInsideWall(lastWall.end, lastWall);
         const newState: DrawState = {
           active: true,
           type: cur.type,
-          originalStart: { ...pushed },
-          start: { ...pushed },
-          end: { ...pushed },
+          originalStart: { ...lastWall.end },
+          start: { ...lastWall.end },
+          end: { ...lastWall.end },
         };
         ref.current = newState;
         setD(newState);
@@ -182,15 +166,13 @@ export function useDrawing(walls: Wall[], axes: Axis[], onAdd: (w: Wall) => void
     onAdd(newWall);
     setLastWallId(newWall.id);
 
-    // ✅ دفع نقطة بداية الجدار التالي للداخل بمقدار سماكة الجدار السابق
-    const pushedStart = pushStartInsideWall(end, newWall);
-
+    // ✅ نقطة البداية للجدار التالي = نهاية الجدار الحالي (بدون دفع)
     const newState: DrawState = {
       active: true,
       type: cur.type,
-      originalStart: { ...pushedStart },
-      start: { ...pushedStart },
-      end: { ...pushedStart },
+      originalStart: { ...end },
+      start: { ...end },
+      end: { ...end },
     };
     ref.current = newState;
     setD(newState);
@@ -209,15 +191,13 @@ export function useDrawing(walls: Wall[], axes: Axis[], onAdd: (w: Wall) => void
     onAdd(newWall);
     setLastWallId(newWall.id);
 
-    // ✅ دفع نقطة بداية الجدار التالي للداخل بمقدار سماكة الجدار السابق
-    const pushedStart = pushStartInsideWall(cur.end, newWall);
-
+    // ✅ نقطة البداية للجدار التالي = نهاية الجدار الحالي (بدون دفع)
     const newState: DrawState = {
       active: true,
       type: cur.type,
-      originalStart: { ...pushedStart },
-      start: { ...pushedStart },
-      end: { ...pushedStart },
+      originalStart: { ...cur.end },
+      start: { ...cur.end },
+      end: { ...cur.end },
     };
     ref.current = newState;
     setD(newState);
@@ -228,25 +208,17 @@ export function useDrawing(walls: Wall[], axes: Axis[], onAdd: (w: Wall) => void
     const cur = ref.current;
     if (!cur.active || !cur.type) return;
 
-    // ✅ الدفع للداخل بناءً على الجدار الأخير
-    const lastWall = walls[walls.length - 1];
-    let pushedStart = { ...newEnd };
-    if (lastWall) {
-      // نبني جداراً وهمياً من نفس نقطة البداية إلى النهاية الجديدة
-      const tempWall: Wall = { ...lastWall, end: { ...newEnd } };
-      pushedStart = pushStartInsideWall(newEnd, tempWall);
-    }
-
+    // ✅ نقطة البداية للجدار التالي = النهاية الجديدة (بدون دفع)
     const newState: DrawState = {
       active: true,
       type: cur.type,
-      originalStart: { ...pushedStart },
-      start: { ...pushedStart },
-      end: { ...pushedStart },
+      originalStart: { ...newEnd },
+      start: { ...newEnd },
+      end: { ...newEnd },
     };
     ref.current = newState;
     setD(newState);
-  }, [walls]);
+  }, []);
 
   return { isDrawing: d.active, drawingType: d.type, tempStart: d.start, tempEnd: d.end, lastWallId, begin, move, finish, finishWithLength, cancel: reset, updateLastWallEnd };
-          }
+            }
