@@ -15,61 +15,73 @@ interface DrawState {
   end: Point | null;
 }
 
-export function useDrawing(
-  walls: Wall[],
-  axes: Axis[],
-  onAdd: (w: Wall) => void
-) {
-  const [d, setD] = useState<DrawState>({
-    active: false,
-    type: null,
-    originalStart: null,
-    start: null,
-    end: null,
-  });
+// ✅ حساب normalSign تلقائياً: جسم الجدار الجديد يمتد نحو جسم الجدار السابق (للداخل)
+function computeNormalSign(
+  newStart: Point,
+  newEnd: Point,
+  prevWall: Wall | null
+): 1 | -1 {
+  if (!prevWall) return 1;
 
+  // منتصف جسم الجدار السابق
+  const pdx = prevWall.end.x - prevWall.start.x;
+  const pdy = prevWall.end.y - prevWall.start.y;
+  const plen = Math.hypot(pdx, pdy) || 1;
+  const pux = pdx / plen;
+  const puy = pdy / plen;
+  const pnx = -puy;
+  const pny = pux;
+  const psign = prevWall.normalSign ?? 1;
+  const prevBodyMid: Point = {
+    x: (prevWall.start.x + prevWall.end.x) / 2 + pnx * (prevWall.thickness / 2) * psign,
+    y: (prevWall.start.y + prevWall.end.y) / 2 + pny * (prevWall.thickness / 2) * psign,
+  };
+
+  // عمودي الجدار الجديد
+  const ndx = newEnd.x - newStart.x;
+  const ndy = newEnd.y - newStart.y;
+  const nlen = Math.hypot(ndx, ndy) || 1;
+  const nux = ndx / nlen;
+  const nuy = ndy / nlen;
+  const nnx = -nuy;
+  const nny = nux;
+
+  // اتجاه "الداخل" من نقطة البداية الجديدة نحو جسم السابق
+  const inx = prevBodyMid.x - newStart.x;
+  const iny = prevBodyMid.y - newStart.y;
+
+  const dot = nnx * inx + nny * iny;
+  return dot > 0 ? 1 : -1;
+}
+
+export function useDrawing(walls: Wall[], axes: Axis[], onAdd: (w: Wall) => void) {
+  const [d, setD] = useState<DrawState>({
+    active: false, type: null, originalStart: null, start: null, end: null,
+  });
   const ref = useRef(d);
   ref.current = d;
-
   const [lastWallId, setLastWallId] = useState<string | null>(null);
 
   const reset = useCallback(() => {
-    const newState: DrawState = {
-      active: false,
-      type: null,
-      originalStart: null,
-      start: null,
-      end: null,
-    };
-
+    const newState: DrawState = { active: false, type: null, originalStart: null, start: null, end: null };
     ref.current = newState;
     setD(newState);
   }, []);
 
   // مزامنة حالة الرسم مع walls عند التراجع / الحذف
   const prevWallsLenRef = useRef(walls.length);
-
   useEffect(() => {
     const cur = ref.current;
     const prevLen = prevWallsLenRef.current;
-
     prevWallsLenRef.current = walls.length;
 
     if (cur.active && walls.length < prevLen) {
       if (walls.length === 0) {
-        const newState: DrawState = {
-          active: false,
-          type: null,
-          originalStart: null,
-          start: null,
-          end: null,
-        };
-
+        const newState: DrawState = { active: false, type: null, originalStart: null, start: null, end: null };
         ref.current = newState;
         setD(newState);
       } else {
         const lastWall = walls[walls.length - 1];
-
         const newState: DrawState = {
           active: true,
           type: cur.type,
@@ -77,414 +89,108 @@ export function useDrawing(
           start: { ...lastWall.end },
           end: { ...lastWall.end },
         };
-
         ref.current = newState;
         setD(newState);
       }
     }
   }, [walls]);
 
-  const snapToAxis = useCallback(
-    (
-      originalStart: Point,
-      end: Point,
-      type: DrawingType
-    ): { start: Point; end: Point } => {
-      if (axes.length === 0) {
-        return {
-          start: originalStart,
-          end,
-        };
+  const snapToAxis = useCallback((originalStart: Point, end: Point): { start: Point; end: Point } => {
+    if (axes.length === 0) return { start: originalStart, end };
+    const dx = Math.abs(end.x - originalStart.x);
+    const dy = Math.abs(end.y - originalStart.y);
+    if (dx > dy) {
+      const nearAxis = axes.find(a => a.type === 'horizontal' && Math.abs(originalStart.y - (a.position - a.offset)) < SNAP_TO_AXIS);
+      if (nearAxis) {
+        const axisY = nearAxis.position - nearAxis.offset;
+        return { start: { ...originalStart, y: axisY }, end: { ...end, y: axisY } };
       }
-
-      const dx = Math.abs(end.x - originalStart.x);
-      const dy = Math.abs(end.y - originalStart.y);
-
-      if (dx > dy) {
-        const nearAxis = axes.find(
-          a =>
-            a.type === 'horizontal' &&
-            Math.abs(
-              originalStart.y - (a.position - a.offset)
-            ) < SNAP_TO_AXIS
-        );
-
-        if (nearAxis) {
-          const axisY = nearAxis.position - nearAxis.offset;
-
-          return {
-            start: {
-              ...originalStart,
-              y: axisY,
-            },
-            end: {
-              ...end,
-              y: axisY,
-            },
-          };
-        }
-      } else {
-        const nearAxis = axes.find(
-          a =>
-            a.type === 'vertical' &&
-            Math.abs(
-              originalStart.x - (a.position + a.offset)
-            ) < SNAP_TO_AXIS
-        );
-
-        if (nearAxis) {
-          const axisX = nearAxis.position + nearAxis.offset;
-
-          return {
-            start: {
-              ...originalStart,
-              x: axisX,
-            },
-            end: {
-              ...end,
-              x: axisX,
-            },
-          };
-        }
+    } else {
+      const nearAxis = axes.find(a => a.type === 'vertical' && Math.abs(originalStart.x - (a.position + a.offset)) < SNAP_TO_AXIS);
+      if (nearAxis) {
+        const axisX = nearAxis.position + nearAxis.offset;
+        return { start: { ...originalStart, x: axisX }, end: { ...end, x: axisX } };
       }
+    }
+    return { start: originalStart, end };
+  }, [axes]);
 
-      return {
-        start: originalStart,
-        end,
-      };
-    },
-    [axes]
-  );
-
-  // ============================================================
-  // بداية الجدار التالي:
-  // لا نزيحها الآن.
-  // الإزاحة تتم بعد معرفة اتجاه الجدار الجديد.
-  // ============================================================
-
-  const getStartInsidePreviousWall = useCallback(
-    (
-      anchor: Point,
-      target: Point,
-      thickness: number
-    ): Point => {
-      const dx = target.x - anchor.x;
-      const dy = target.y - anchor.y;
-      const len = Math.hypot(dx, dy);
-
-      if (len < 1e-9) {
-        return { ...anchor };
-      }
-
-      const ux = dx / len;
-      const uy = dy / len;
-
-      return {
-        x: anchor.x + ux * thickness,
-        y: anchor.y + uy * thickness,
-      };
-    },
-    []
-  );
-
-  // ============================================================
-  // بداية الرسم
-  // ============================================================
-
-  const begin = useCallback(
-    (pt: Point, type: DrawingType) => {
-      if (!type) return;
-
-      const cur = ref.current;
-
-      // إذا كان الرسم المستمر فعالاً،
-      // فإن originalStart يمثل نقطة نهاية الجدار السابق.
-      if (cur.active && cur.start && cur.type) {
-        const newState = {
-          ...cur,
-          end: pt,
-        };
-
-        ref.current = newState;
-        setD(newState);
-        return;
-      }
-
-      const snap = findSnapToFace(
-        pt,
-        walls,
-        undefined,
-        SNAP
-      );
-
-      const start = snap?.point ?? pt;
-
-      const newState: DrawState = {
-        active: true,
-        type,
-        originalStart: start,
-        start,
-        end: pt,
-      };
-
-      ref.current = newState;
-      setD(newState);
-    },
-    [walls]
-  );
-
-  // ============================================================
-  // حركة الرسم
-  // ============================================================
-
-  const move = useCallback(
-    (pt: Point) => {
-      const cur = ref.current;
-
-      if (
-        !cur.active ||
-        !cur.originalStart ||
-        !cur.type
-      ) {
-        return;
-      }
-
-      // originalStart = نقطة نهاية الجدار السابق
-      const anchor = cur.originalStart;
-
-      const angle = getAngle(anchor, pt);
-      const snappedAngle = snapAngle(angle);
-
-      const isHorizontal =
-        Math.abs(snappedAngle) < 0.001 ||
-        Math.abs(snappedAngle - Math.PI) < 0.001;
-
-      const isAngleSnapped =
-        snappedAngle !== angle;
-
-      // --------------------------------------------------------
-      // تحديد نهاية الجدار حسب اتجاه الرسم
-      // --------------------------------------------------------
-
-      let rawEnd: Point;
-
-      if (isAngleSnapped) {
-        rawEnd = isHorizontal
-          ? {
-              x: pt.x,
-              y: anchor.y,
-            }
-          : {
-              x: anchor.x,
-              y: pt.y,
-            };
-      } else {
-        rawEnd = pt;
-      }
-
-      // --------------------------------------------------------
-      // التقاط وجه جدار موجود
-      // --------------------------------------------------------
-
-      const faceSnap = findSnapToFace(
-        rawEnd,
-        walls,
-        undefined,
-        SNAP
-      );
-
-      let end = rawEnd;
-
-      if (faceSnap) {
-        if (isAngleSnapped) {
-          if (isHorizontal) {
-            end = {
-              x: faceSnap.point.x,
-              y: anchor.y,
-            };
-          } else {
-            end = {
-              x: anchor.x,
-              y: faceSnap.point.y,
-            };
-          }
-        } else {
-          end = faceSnap.point;
-        }
-      }
-
-      // --------------------------------------------------------
-      // تصحيح المحور
-      // --------------------------------------------------------
-
-      const axisResult = snapToAxis(
-        anchor,
-        end,
-        cur.type
-      );
-
-      end = axisResult.end;
-
-      // --------------------------------------------------------
-      // سماكة الجدار السابق
-      // --------------------------------------------------------
-
-      const previousWall =
-        walls.length > 0
-          ? walls[walls.length - 1]
-          : null;
-
-      const thickness =
-        previousWall?.thickness ??
-        (cur.type === 'exterior' ? 0.3 : 0.2);
-
-      // --------------------------------------------------------
-      // إدخال بداية الجدار الجديد داخل الجدار السابق
-      // --------------------------------------------------------
-
-      const start = getStartInsidePreviousWall(
-        anchor,
-        end,
-        thickness
-      );
-
-      const newState: DrawState = {
-        ...cur,
-        start,
-        end,
-      };
-
-      ref.current = newState;
-      setD(newState);
-    },
-    [
-      walls,
-      snapToAxis,
-      getStartInsidePreviousWall,
-    ]
-  );
-
-  // ============================================================
-  // إنهاء الجدار بطول محدد
-  // ============================================================
-
-  const finishWithLength = useCallback(
-    (length: number) => {
-      const cur = ref.current;
-
-      if (
-        !cur.active ||
-        !cur.start ||
-        !cur.end ||
-        !cur.type
-      ) {
-        return;
-      }
-
-      const angle = getAngle(
-        cur.originalStart ?? cur.start,
-        cur.end
-      );
-
-      const snapped = snapAngle(angle);
-
-      const thickness =
-        walls.length > 0
-          ? walls[walls.length - 1].thickness
-          : cur.type === 'exterior'
-            ? 0.3
-            : 0.2;
-
-      // نقطة نهاية الجدار تعتمد على نقطة بداية الجدار الفعلية
-      const start = cur.start;
-
-      const end: Point = {
-        x:
-          start.x +
-          Math.cos(snapped) * length,
-        y:
-          start.y +
-          Math.sin(snapped) * length,
-      };
-
-      const newWall: Wall = {
-        id: uuidv4(),
-        start: { ...start },
-        end: { ...end },
-        thickness,
-        type: cur.type as WallType,
-        normalSign: 1,
-        lockDirection: false,
-        lockLength: false,
-        lockMove: true,
-      };
-
-      onAdd(newWall);
-      setLastWallId(newWall.id);
-
-      // الجدار القادم يبدأ من نهاية هذا الجدار
-      // ثم يتم إدخاله داخل هذا الجدار عند تحديد اتجاهه.
-      const newState: DrawState = {
-        active: true,
-        type: cur.type,
-        originalStart: { ...end },
-        start: { ...end },
-        end: { ...end },
-      };
-
-      ref.current = newState;
-      setD(newState);
-    },
-    [onAdd, walls]
-  );
-
-  // ============================================================
-  // إنهاء الجدار
-  // ============================================================
-
-  const finish = useCallback(() => {
+  const begin = useCallback((pt: Point, type: DrawingType) => {
+    if (!type) return;
     const cur = ref.current;
 
-    if (
-      !cur.active ||
-      !cur.start ||
-      !cur.end ||
-      !cur.type
-    ) {
-      reset();
-      return;
-    }
-
-    if (
-      distance(
-        cur.start,
-        cur.end
-      ) < 0.1
-    ) {
-      const newState = {
-        ...cur,
-        end: { ...cur.start },
-      };
-
+    if (cur.active && cur.start && cur.type) {
+      const newState = { ...cur, end: pt };
       ref.current = newState;
       setD(newState);
       return;
     }
 
-    const thickness =
-      walls.length > 0
-        ? walls[walls.length - 1].thickness
-        : cur.type === 'exterior'
-          ? 0.3
-          : 0.2;
+    const snap = findSnapToFace(pt, walls, undefined, SNAP);
+    const start = snap?.point ?? pt;
+    const newState: DrawState = { active: true, type, originalStart: start, start, end: pt };
+    ref.current = newState;
+    setD(newState);
+  }, [walls]);
+
+  const move = useCallback((pt: Point) => {
+    const cur = ref.current;
+    if (!cur.active || !cur.originalStart || !cur.type) return;
+
+    const anchor = cur.originalStart;
+    const angle = getAngle(anchor, pt);
+    const snappedAngle = snapAngle(angle);
+    const isHorizontal = Math.abs(snappedAngle) < 0.001 || Math.abs(snappedAngle - Math.PI) < 0.001;
+    const isAngleSnapped = snappedAngle !== angle;
+
+    let end: Point;
+    if (isAngleSnapped) {
+      end = isHorizontal ? { x: pt.x, y: anchor.y } : { x: anchor.x, y: pt.y };
+    } else {
+      end = pt;
+    }
+
+    const faceSnap = findSnapToFace(end, walls, undefined, SNAP);
+    if (faceSnap) {
+      if (isAngleSnapped) {
+        if (isHorizontal) end = { x: faceSnap.point.x, y: anchor.y };
+        else end = { x: anchor.x, y: faceSnap.point.y };
+      } else {
+        end = faceSnap.point;
+      }
+    } else {
+      const result = snapToAxis(anchor, end);
+      end = result.end;
+    }
+
+    const newState = { ...cur, start: anchor, end };
+    ref.current = newState;
+    setD(newState);
+  }, [walls, snapToAxis]);
+
+  const finishWithLength = useCallback((length: number) => {
+    const cur = ref.current;
+    if (!cur.active || !cur.start || !cur.end || !cur.type) return;
+
+    const anchor = cur.originalStart ?? cur.start;
+    const angle = getAngle(anchor, cur.end);
+    const snapped = snapAngle(angle);
+
+    const end: Point = {
+      x: anchor.x + Math.cos(snapped) * length,
+      y: anchor.y + Math.sin(snapped) * length,
+    };
+
+    const prevWall = walls.length > 0 ? walls[walls.length - 1] : null;
+    const normalSign = computeNormalSign(anchor, end, prevWall);
 
     const newWall: Wall = {
       id: uuidv4(),
-      start: { ...cur.start },
-      end: { ...cur.end },
-      thickness,
+      start: { ...anchor },
+      end,
+      thickness: cur.type === 'exterior' ? 0.3 : 0.2,
       type: cur.type as WallType,
-      normalSign: 1,
+      normalSign,
       lockDirection: false,
       lockLength: false,
       lockMove: true,
@@ -493,63 +199,66 @@ export function useDrawing(
     onAdd(newWall);
     setLastWallId(newWall.id);
 
-    // ==========================================================
-    // مهم:
-    // لا نحرك نقطة بداية الجدار التالي هنا.
-    // نحتفظ بنهاية الجدار الحالي كـ anchor.
-    // وعند تحريك المؤشر للجدار التالي يتم إدخاله
-    // داخل سماكة الجدار السابق في اتجاه الجدار الجديد.
-    // ==========================================================
-
     const newState: DrawState = {
-      active: true,
-      type: cur.type,
-      originalStart: { ...cur.end },
-      start: { ...cur.end },
+      active: true, type: cur.type,
+      originalStart: { ...end }, start: { ...end }, end: { ...end },
+    };
+    ref.current = newState;
+    setD(newState);
+  }, [onAdd, walls]);
+
+  const finish = useCallback(() => {
+    const cur = ref.current;
+    if (!cur.active || !cur.start || !cur.end || !cur.type) { reset(); return; }
+    if (distance(cur.start, cur.end) < 0.1) {
+      const newState = { ...cur, end: { ...cur.start } };
+      ref.current = newState;
+      setD(newState);
+      return;
+    }
+
+    const anchor = cur.originalStart ?? cur.start;
+    const prevWall = walls.length > 0 ? walls[walls.length - 1] : null;
+    const normalSign = computeNormalSign(anchor, cur.end, prevWall);
+
+    const newWall: Wall = {
+      id: uuidv4(),
+      start: { ...anchor },
       end: { ...cur.end },
+      thickness: cur.type === 'exterior' ? 0.3 : 0.2,
+      type: cur.type as WallType,
+      normalSign,
+      lockDirection: false,
+      lockLength: false,
+      lockMove: true,
     };
 
+    onAdd(newWall);
+    setLastWallId(newWall.id);
+
+    const newState: DrawState = {
+      active: true, type: cur.type,
+      originalStart: { ...cur.end }, start: { ...cur.end }, end: { ...cur.end },
+    };
     ref.current = newState;
     setD(newState);
   }, [onAdd, reset, walls]);
 
-  // ============================================================
-  // تحديث نقطة بداية الجدار التالي بعد تغيير طول الجدار الأخير
-  // ============================================================
-
-  const updateLastWallEnd = useCallback(
-    (newEnd: Point) => {
-      const cur = ref.current;
-
-      if (!cur.active || !cur.type) {
-        return;
-      }
-
-      const newState: DrawState = {
-        active: true,
-        type: cur.type,
-        originalStart: { ...newEnd },
-        start: { ...newEnd },
-        end: { ...newEnd },
-      };
-
-      ref.current = newState;
-      setD(newState);
-    },
-    []
-  );
+  const updateLastWallEnd = useCallback((newEnd: Point) => {
+    const cur = ref.current;
+    if (!cur.active || !cur.type) return;
+    const newState: DrawState = {
+      active: true, type: cur.type,
+      originalStart: { ...newEnd }, start: { ...newEnd }, end: { ...newEnd },
+    };
+    ref.current = newState;
+    setD(newState);
+  }, []);
 
   return {
-    isDrawing: d.active,
-    drawingType: d.type,
-    tempStart: d.start,
-    tempEnd: d.end,
-    lastWallId,
-    begin,
-    move,
-    finish,
-    finishWithLength,
-    cancel: reset,
-    updateLastWallEnd,
+    isDrawing: d.active, drawingType: d.type,
+    tempStart: d.start, tempEnd: d.end,
+    lastWallId, begin, move, finish, finishWithLength,
+    cancel: reset, updateLastWallEnd,
   };
-              }
+          }
