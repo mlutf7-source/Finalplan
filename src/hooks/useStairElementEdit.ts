@@ -2,10 +2,13 @@ import { useState, useCallback, useRef } from 'react';
 import type { Point, StairElement, Wall } from '../core/types';
 import { distance } from '../core/geometry';
 import { getElementCorners, isPointInElement, snapElementToOthers, snapElementToWalls } from '../core/stairElementGeometry';
+
 export type StairElementDragMode = 'move' | 'rotate' | null;
 
 const HANDLE_TOL = 0.4;
 const SNAP_TOL = 0.15;
+// ✅ أدنى مسافة حركة قبل تفعيل Snap (لمنع القفز عند اللمس)
+const SNAP_MIN_MOVE = 0.05;
 
 export function useStairElementEdit() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -14,7 +17,9 @@ export function useStairElementEdit() {
   const originalRef = useRef<StairElement | null>(null);
 
   const hitTest = useCallback((pt: Point, el: StairElement): StairElementDragMode => {
-    // فحص مقبض التدوير
+    // ✅ العنصر المقفل لا يُحدَّد
+    if (el.locked) return null;
+
     const corners = getElementCorners(el);
     const topMid = {
       x: (corners[0].x + corners[1].x) / 2,
@@ -47,39 +52,47 @@ export function useStairElementEdit() {
     originalRef.current = null;
   }, []);
 
-const moveDrag = useCallback(
-  (pt: Point, allElements: StairElement[], onUpdate: (id: string, patch: Partial<StairElement>) => void, walls?: Wall[]) => {
-    const original = originalRef.current;
-    const startPt = dragStartRef.current;
-    const mode = dragModeRef.current;
-    if (!original || !startPt || !mode) return;
+  const moveDrag = useCallback(
+    (
+      pt: Point,
+      allElements: StairElement[],
+      onUpdate: (id: string, patch: Partial<StairElement>) => void,
+      walls?: Wall[]
+    ) => {
+      const original = originalRef.current;
+      const startPt = dragStartRef.current;
+      const mode = dragModeRef.current;
+      if (!original || !startPt || !mode) return;
 
-    if (mode === 'rotate') {
-      const angle = Math.atan2(pt.y - original.position.y, pt.x - original.position.x);
-      const snapped = Math.round(angle / (Math.PI / 2)) * (Math.PI / 2);
-      onUpdate(original.id, { rotation: snapped });
-      return;
-    }
+      if (mode === 'rotate') {
+        const angle = Math.atan2(pt.y - original.position.y, pt.x - original.position.x);
+        const snapped = Math.round(angle / (Math.PI / 2)) * (Math.PI / 2);
+        onUpdate(original.id, { rotation: snapped });
+        return;
+      }
 
-    // move
-    const dx = pt.x - startPt.x;
-    const dy = pt.y - startPt.y;
-    let moved: StairElement = {
-      ...original,
-      position: { x: original.position.x + dx, y: original.position.y + dy },
-    };
+      // move
+      const dx = pt.x - startPt.x;
+      const dy = pt.y - startPt.y;
+      let moved: StairElement = {
+        ...original,
+        position: { x: original.position.x + dx, y: original.position.y + dy },
+      };
 
-    // ✅ Snap مع الجدران أولاً
-    if (walls && walls.length > 0) {
-      moved = snapElementToWalls(moved, walls, SNAP_TOL);
-    }
-    // ✅ Snap مع بقية عناصر السلم
-    moved = snapElementToOthers(moved, allElements, SNAP_TOL);
+      // ✅ لا تفعّل Snap إلا بعد حركة كافية
+      const movedDist = Math.hypot(dx, dy);
+      if (movedDist > SNAP_MIN_MOVE) {
+        if (walls && walls.length > 0) {
+          moved = snapElementToWalls(moved, walls, SNAP_TOL);
+        }
+        moved = snapElementToOthers(moved, allElements, SNAP_TOL);
+      }
 
-    onUpdate(moved.id, { position: moved.position });
-  },
-  []
-);
+      onUpdate(moved.id, { position: moved.position });
+    },
+    []
+  );
+
   const endDrag = useCallback(() => {
     dragModeRef.current = null;
     dragStartRef.current = null;
