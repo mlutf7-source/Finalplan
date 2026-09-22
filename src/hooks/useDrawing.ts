@@ -4,7 +4,6 @@ import { distance, snapAngle, getAngle } from '../core/geometry';
 import { findSnapToFace } from '../core/snapToFace';
 import { v4 as uuidv4 } from 'uuid';
 
-// ✅ مسافة قريبة جداً لالتقاط الوجه (10 سم بدل 30)
 const SNAP = 0.1;
 const SNAP_TO_AXIS = 0.5;
 
@@ -16,7 +15,11 @@ interface DrawState {
   end: Point | null;
 }
 
-export function useDrawing(walls: Wall[], axes: Axis[], onAdd: (w: Wall) => void) {
+export function useDrawing(
+  walls: Wall[],
+  axes: Axis[],
+  onAdd: (w: Wall) => void
+) {
   const [d, setD] = useState<DrawState>({
     active: false,
     type: null,
@@ -43,7 +46,7 @@ export function useDrawing(walls: Wall[], axes: Axis[], onAdd: (w: Wall) => void
     setD(newState);
   }, []);
 
-  // ✅ مزامنة حالة الرسم مع walls عند التراجع / الحذف
+  // مزامنة حالة الرسم مع walls عند التراجع / الحذف
   const prevWallsLenRef = useRef(walls.length);
 
   useEffect(() => {
@@ -52,7 +55,6 @@ export function useDrawing(walls: Wall[], axes: Axis[], onAdd: (w: Wall) => void
 
     prevWallsLenRef.current = walls.length;
 
-    // إذا كان الرسم نشطاً وتم حذف جدار
     if (cur.active && walls.length < prevLen) {
       if (walls.length === 0) {
         const newState: DrawState = {
@@ -89,7 +91,10 @@ export function useDrawing(walls: Wall[], axes: Axis[], onAdd: (w: Wall) => void
       type: DrawingType
     ): { start: Point; end: Point } => {
       if (axes.length === 0) {
-        return { start: originalStart, end };
+        return {
+          start: originalStart,
+          end,
+        };
       }
 
       const dx = Math.abs(end.x - originalStart.x);
@@ -151,42 +156,49 @@ export function useDrawing(walls: Wall[], axes: Axis[], onAdd: (w: Wall) => void
     [axes]
   );
 
-  // ✅ حساب بداية الجدار التالي داخل الجدار السابق
-  // يتم الدخول بمقدار سماكة الجدار السابق كاملة
-  const getNextWallStart = useCallback(
+  // ============================================================
+  // بداية الجدار التالي:
+  // لا نزيحها الآن.
+  // الإزاحة تتم بعد معرفة اتجاه الجدار الجديد.
+  // ============================================================
+
+  const getStartInsidePreviousWall = useCallback(
     (
-      end: Point,
-      start: Point,
+      anchor: Point,
+      target: Point,
       thickness: number
     ): Point => {
-      const dx = end.x - start.x;
-      const dy = end.y - start.y;
+      const dx = target.x - anchor.x;
+      const dy = target.y - anchor.y;
       const len = Math.hypot(dx, dy);
 
       if (len < 1e-9) {
-        return { ...end };
+        return { ...anchor };
       }
 
-      // متجه محور الجدار السابق
       const ux = dx / len;
       const uy = dy / len;
 
-      // الرجوع داخل الجدار السابق بمقدار سماكته كاملة
       return {
-        x: end.x - ux * thickness,
-        y: end.y - uy * thickness,
+        x: anchor.x + ux * thickness,
+        y: anchor.y + uy * thickness,
       };
     },
     []
   );
 
-  // ✅ الرسم المستمر
+  // ============================================================
+  // بداية الرسم
+  // ============================================================
+
   const begin = useCallback(
     (pt: Point, type: DrawingType) => {
       if (!type) return;
 
       const cur = ref.current;
 
+      // إذا كان الرسم المستمر فعالاً،
+      // فإن originalStart يمثل نقطة نهاية الجدار السابق.
       if (cur.active && cur.start && cur.type) {
         const newState = {
           ...cur,
@@ -221,6 +233,10 @@ export function useDrawing(walls: Wall[], axes: Axis[], onAdd: (w: Wall) => void
     [walls]
   );
 
+  // ============================================================
+  // حركة الرسم
+  // ============================================================
+
   const move = useCallback(
     (pt: Point) => {
       const cur = ref.current;
@@ -233,13 +249,10 @@ export function useDrawing(walls: Wall[], axes: Axis[], onAdd: (w: Wall) => void
         return;
       }
 
-      const originalStart = cur.originalStart;
+      // originalStart = نقطة نهاية الجدار السابق
+      const anchor = cur.originalStart;
 
-      const angle = getAngle(
-        originalStart,
-        pt
-      );
-
+      const angle = getAngle(anchor, pt);
       const snappedAngle = snapAngle(angle);
 
       const isHorizontal =
@@ -249,82 +262,111 @@ export function useDrawing(walls: Wall[], axes: Axis[], onAdd: (w: Wall) => void
       const isAngleSnapped =
         snappedAngle !== angle;
 
-      let end: Point;
+      // --------------------------------------------------------
+      // تحديد نهاية الجدار حسب اتجاه الرسم
+      // --------------------------------------------------------
+
+      let rawEnd: Point;
 
       if (isAngleSnapped) {
-        end = isHorizontal
+        rawEnd = isHorizontal
           ? {
               x: pt.x,
-              y: originalStart.y,
+              y: anchor.y,
             }
           : {
-              x: originalStart.x,
+              x: anchor.x,
               y: pt.y,
             };
       } else {
-        end = pt;
+        rawEnd = pt;
       }
 
+      // --------------------------------------------------------
+      // التقاط وجه جدار موجود
+      // --------------------------------------------------------
+
       const faceSnap = findSnapToFace(
-        end,
+        rawEnd,
         walls,
         undefined,
         SNAP
       );
 
-      let usedFaceSnap = false;
+      let end = rawEnd;
 
       if (faceSnap) {
         if (isAngleSnapped) {
           if (isHorizontal) {
             end = {
               x: faceSnap.point.x,
-              y: originalStart.y,
+              y: anchor.y,
             };
-
-            usedFaceSnap = true;
           } else {
             end = {
-              x: originalStart.x,
+              x: anchor.x,
               y: faceSnap.point.y,
             };
-
-            usedFaceSnap = true;
           }
         } else {
           end = faceSnap.point;
-          usedFaceSnap = true;
         }
       }
 
-      if (!usedFaceSnap) {
-        const result = snapToAxis(
-          originalStart,
-          end,
-          cur.type
-        );
+      // --------------------------------------------------------
+      // تصحيح المحور
+      // --------------------------------------------------------
 
-        const newState = {
-          ...cur,
-          start: result.start,
-          end: result.end,
-        };
+      const axisResult = snapToAxis(
+        anchor,
+        end,
+        cur.type
+      );
 
-        ref.current = newState;
-        setD(newState);
-        return;
-      }
+      end = axisResult.end;
 
-      const newState = {
+      // --------------------------------------------------------
+      // سماكة الجدار السابق
+      // --------------------------------------------------------
+
+      const previousWall =
+        walls.length > 0
+          ? walls[walls.length - 1]
+          : null;
+
+      const thickness =
+        previousWall?.thickness ??
+        (cur.type === 'exterior' ? 0.3 : 0.2);
+
+      // --------------------------------------------------------
+      // إدخال بداية الجدار الجديد داخل الجدار السابق
+      // --------------------------------------------------------
+
+      const start = getStartInsidePreviousWall(
+        anchor,
+        end,
+        thickness
+      );
+
+      const newState: DrawState = {
         ...cur,
+        start,
         end,
       };
 
       ref.current = newState;
       setD(newState);
     },
-    [walls, snapToAxis]
+    [
+      walls,
+      snapToAxis,
+      getStartInsidePreviousWall,
+    ]
   );
+
+  // ============================================================
+  // إنهاء الجدار بطول محدد
+  // ============================================================
 
   const finishWithLength = useCallback(
     (length: number) => {
@@ -340,43 +382,35 @@ export function useDrawing(walls: Wall[], axes: Axis[], onAdd: (w: Wall) => void
       }
 
       const angle = getAngle(
-        cur.start,
+        cur.originalStart ?? cur.start,
         cur.end
       );
 
       const snapped = snapAngle(angle);
 
-      let end: Point;
-
-      if (snapped !== angle) {
-        end = {
-          x:
-            cur.start.x +
-            Math.cos(snapped) * length,
-          y:
-            cur.start.y +
-            Math.sin(snapped) * length,
-        };
-      } else {
-        end = {
-          x:
-            cur.start.x +
-            Math.cos(angle) * length,
-          y:
-            cur.start.y +
-            Math.sin(angle) * length,
-        };
-      }
-
       const thickness =
-        cur.type === 'exterior'
-          ? 0.3
-          : 0.2;
+        walls.length > 0
+          ? walls[walls.length - 1].thickness
+          : cur.type === 'exterior'
+            ? 0.3
+            : 0.2;
+
+      // نقطة نهاية الجدار تعتمد على نقطة بداية الجدار الفعلية
+      const start = cur.start;
+
+      const end: Point = {
+        x:
+          start.x +
+          Math.cos(snapped) * length,
+        y:
+          start.y +
+          Math.sin(snapped) * length,
+      };
 
       const newWall: Wall = {
         id: uuidv4(),
-        start: { ...cur.start },
-        end,
+        start: { ...start },
+        end: { ...end },
         thickness,
         type: cur.type as WallType,
         normalSign: 1,
@@ -388,27 +422,25 @@ export function useDrawing(walls: Wall[], axes: Axis[], onAdd: (w: Wall) => void
       onAdd(newWall);
       setLastWallId(newWall.id);
 
-      // ✅ بداية الجدار التالي تدخل داخل الجدار السابق
-      // بمقدار سماكة الجدار السابق كاملة
-      const nextStart = getNextWallStart(
-        end,
-        cur.start,
-        thickness
-      );
-
+      // الجدار القادم يبدأ من نهاية هذا الجدار
+      // ثم يتم إدخاله داخل هذا الجدار عند تحديد اتجاهه.
       const newState: DrawState = {
         active: true,
         type: cur.type,
-        originalStart: nextStart,
-        start: nextStart,
-        end: nextStart,
+        originalStart: { ...end },
+        start: { ...end },
+        end: { ...end },
       };
 
       ref.current = newState;
       setD(newState);
     },
-    [onAdd, getNextWallStart]
+    [onAdd, walls]
   );
+
+  // ============================================================
+  // إنهاء الجدار
+  // ============================================================
 
   const finish = useCallback(() => {
     const cur = ref.current;
@@ -440,9 +472,11 @@ export function useDrawing(walls: Wall[], axes: Axis[], onAdd: (w: Wall) => void
     }
 
     const thickness =
-      cur.type === 'exterior'
-        ? 0.3
-        : 0.2;
+      walls.length > 0
+        ? walls[walls.length - 1].thickness
+        : cur.type === 'exterior'
+          ? 0.3
+          : 0.2;
 
     const newWall: Wall = {
       id: uuidv4(),
@@ -459,27 +493,30 @@ export function useDrawing(walls: Wall[], axes: Axis[], onAdd: (w: Wall) => void
     onAdd(newWall);
     setLastWallId(newWall.id);
 
-    // ✅ بداية الجدار التالي تدخل داخل الجدار السابق
-    // بمقدار سماكة الجدار السابق كاملة
-    const nextStart = getNextWallStart(
-      cur.end,
-      cur.start,
-      thickness
-    );
+    // ==========================================================
+    // مهم:
+    // لا نحرك نقطة بداية الجدار التالي هنا.
+    // نحتفظ بنهاية الجدار الحالي كـ anchor.
+    // وعند تحريك المؤشر للجدار التالي يتم إدخاله
+    // داخل سماكة الجدار السابق في اتجاه الجدار الجديد.
+    // ==========================================================
 
     const newState: DrawState = {
       active: true,
       type: cur.type,
-      originalStart: nextStart,
-      start: nextStart,
-      end: nextStart,
+      originalStart: { ...cur.end },
+      start: { ...cur.end },
+      end: { ...cur.end },
     };
 
     ref.current = newState;
     setD(newState);
-  }, [onAdd, reset, getNextWallStart]);
+  }, [onAdd, reset, walls]);
 
-  // ✅ تحديث نقطة بداية الجدار التالي بعد تغيير طول الجدار الأخير
+  // ============================================================
+  // تحديث نقطة بداية الجدار التالي بعد تغيير طول الجدار الأخير
+  // ============================================================
+
   const updateLastWallEnd = useCallback(
     (newEnd: Point) => {
       const cur = ref.current;
@@ -488,34 +525,18 @@ export function useDrawing(walls: Wall[], axes: Axis[], onAdd: (w: Wall) => void
         return;
       }
 
-      const thickness =
-        cur.type === 'exterior'
-          ? 0.3
-          : 0.2;
-
-      // نستخدم نهاية الجدار الجديد كنقطة مرجعية
-      // مع الدخول داخل سماكة الجدار السابق
-      const previousStart =
-        cur.start ?? newEnd;
-
-      const nextStart = getNextWallStart(
-        newEnd,
-        previousStart,
-        thickness
-      );
-
       const newState: DrawState = {
         active: true,
         type: cur.type,
-        originalStart: nextStart,
-        start: nextStart,
-        end: nextStart,
+        originalStart: { ...newEnd },
+        start: { ...newEnd },
+        end: { ...newEnd },
       };
 
       ref.current = newState;
       setD(newState);
     },
-    [getNextWallStart]
+    []
   );
 
   return {
@@ -531,4 +552,4 @@ export function useDrawing(walls: Wall[], axes: Axis[], onAdd: (w: Wall) => void
     cancel: reset,
     updateLastWallEnd,
   };
-}
+              }
