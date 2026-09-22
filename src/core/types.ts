@@ -59,4 +59,6 @@ export interface StairElement {
   treadDepth?: number;  // عمق الدرجة
   riserHeight?: number; // ارتفاع الدرجة
   stepCount?: number;   // عدد الدرجات (يُحسب من length/treadDepth)
+  // ✅ قفل العنصر (يمنع تحديده/تحريكه)
+  locked?: boolean;
 }
