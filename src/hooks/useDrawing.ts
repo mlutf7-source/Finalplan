@@ -15,12 +15,8 @@ interface DrawState {
   end: Point | null;
 }
 
-// ✅ حساب normalSign تلقائياً: جسم الجدار الجديد يمتد نحو جسم الجدار السابق (للداخل)
-function computeNormalSign(
-  newStart: Point,
-  newEnd: Point,
-  prevWall: Wall | null
-): 1 | -1 {
+// ✅ حساب normalSign تلقائياً: جسم الجدار الجديد يمتد نحو جسم الجدار السابق
+function computeNormalSign(newStart: Point, newEnd: Point, prevWall: Wall | null): 1 | -1 {
   if (!prevWall) return 1;
 
   // منتصف جسم الجدار السابق
@@ -46,7 +42,7 @@ function computeNormalSign(
   const nnx = -nuy;
   const nny = nux;
 
-  // اتجاه "الداخل" من نقطة البداية الجديدة نحو جسم السابق
+  // الاتجاه من نقطة البداية الجديدة نحو جسم السابق
   const inx = prevBodyMid.x - newStart.x;
   const iny = prevBodyMid.y - newStart.y;
 
@@ -95,24 +91,24 @@ export function useDrawing(walls: Wall[], axes: Axis[], onAdd: (w: Wall) => void
     }
   }, [walls]);
 
-  const snapToAxis = useCallback((originalStart: Point, end: Point): { start: Point; end: Point } => {
-    if (axes.length === 0) return { start: originalStart, end };
-    const dx = Math.abs(end.x - originalStart.x);
-    const dy = Math.abs(end.y - originalStart.y);
+  const snapToAxis = useCallback((anchor: Point, end: Point): { start: Point; end: Point } => {
+    if (axes.length === 0) return { start: anchor, end };
+    const dx = Math.abs(end.x - anchor.x);
+    const dy = Math.abs(end.y - anchor.y);
     if (dx > dy) {
-      const nearAxis = axes.find(a => a.type === 'horizontal' && Math.abs(originalStart.y - (a.position - a.offset)) < SNAP_TO_AXIS);
+      const nearAxis = axes.find(a => a.type === 'horizontal' && Math.abs(anchor.y - (a.position - a.offset)) < SNAP_TO_AXIS);
       if (nearAxis) {
         const axisY = nearAxis.position - nearAxis.offset;
-        return { start: { ...originalStart, y: axisY }, end: { ...end, y: axisY } };
+        return { start: { ...anchor, y: axisY }, end: { ...end, y: axisY } };
       }
     } else {
-      const nearAxis = axes.find(a => a.type === 'vertical' && Math.abs(originalStart.x - (a.position + a.offset)) < SNAP_TO_AXIS);
+      const nearAxis = axes.find(a => a.type === 'vertical' && Math.abs(anchor.x - (a.position + a.offset)) < SNAP_TO_AXIS);
       if (nearAxis) {
         const axisX = nearAxis.position + nearAxis.offset;
-        return { start: { ...originalStart, x: axisX }, end: { ...end, x: axisX } };
+        return { start: { ...anchor, x: axisX }, end: { ...end, x: axisX } };
       }
     }
-    return { start: originalStart, end };
+    return { start: anchor, end };
   }, [axes]);
 
   const begin = useCallback((pt: Point, type: DrawingType) => {
@@ -163,6 +159,7 @@ export function useDrawing(walls: Wall[], axes: Axis[], onAdd: (w: Wall) => void
       end = result.end;
     }
 
+    // ✅ start = anchor (لا دفع — التداخل الطبيعي يغطي الأركان)
     const newState = { ...cur, start: anchor, end };
     ref.current = newState;
     setD(newState);
