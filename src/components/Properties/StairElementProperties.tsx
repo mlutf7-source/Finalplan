@@ -117,8 +117,25 @@ export const StairElementProperties: React.FC<Props> = ({ element, onUpdate, onR
         </>
       )}
 
-      <button onClick={() => onRotate(element.id)} style={{ padding: '6px 12px', background: '#f80', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 700 }}>
+            <button onClick={() => onRotate(element.id)} style={{ padding: '6px 12px', background: '#f80', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 700 }}>
         🔄 90°
+      </button>
+
+      {/* ✅ زر القفل — يعمل على أي عنصر (سحبة أو بسطة) */}
+      <button
+        onClick={() => onUpdate(element.id, { locked: !element.locked })}
+        title={element.locked ? 'إلغاء القفل' : 'قفل العنصر'}
+        style={{
+          padding: '6px 12px',
+          background: element.locked ? '#e67e22' : '#fff',
+          color: element.locked ? '#fff' : '#e67e22',
+          border: '2px solid #e67e22',
+          borderRadius: 6,
+          cursor: 'pointer',
+          fontWeight: 700,
+        }}
+      >
+        {element.locked ? '🔓' : '🔒'}
       </button>
 
       <button onClick={() => onDelete(element.id)} style={{ padding: '6px 12px', background: '#dc3545', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 700 }}>
