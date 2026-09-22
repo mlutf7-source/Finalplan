@@ -44,7 +44,7 @@ export function rotateElement(el: StairElement, angle: number): StairElement {
   return { ...el, rotation: (el.rotation + angle) % (Math.PI * 2) };
 }
 
-// ✅ Snap شامل (خيار ج) — زوايا ↔ زوايا، زوايا ↔ حواف، حواف متوازية
+// ✅ Snap شامل — زوايا ↔ زوايا (بأولوية)، زوايا ↔ حواف، حواف متوازية
 export function snapElementToOthers(
   el: StairElement,
   others: StairElement[],
@@ -57,9 +57,12 @@ export function snapElementToOthers(
     q: corners[(i + 1) % corners.length],
   }));
 
+  // ✅ bonus للزوايا: يجعل corner↔corner يفضل على edge
+  const CORNER_BONUS = 0.06;
+
+  let bestScore = tolerance;
   let bestDx = 0;
   let bestDy = 0;
-  let bestDist = tolerance;
 
   for (const other of others) {
     if (other.id === el.id) continue;
@@ -69,12 +72,13 @@ export function snapElementToOthers(
       q: otherCorners[(i + 1) % otherCorners.length],
     }));
 
-    // 1️⃣ زاوية ↔ زاوية
+    // 1️⃣ زاوية ↔ زاوية (مع bonus)
     for (const c1 of corners) {
       for (const c2 of otherCorners) {
         const d = distance(c1, c2);
-        if (d < bestDist) {
-          bestDist = d;
+        const score = d - CORNER_BONUS;
+        if (score < bestScore) {
+          bestScore = score;
           bestDx = c2.x - c1.x;
           bestDy = c2.y - c1.y;
         }
@@ -86,8 +90,8 @@ export function snapElementToOthers(
       for (const edge of otherEdges) {
         const cp = closestPointOnSegmentLocal(c1, edge.p, edge.q);
         const d = distance(c1, cp);
-        if (d < bestDist) {
-          bestDist = d;
+        if (d < bestScore) {
+          bestScore = d;
           bestDx = cp.x - c1.x;
           bestDy = cp.y - c1.y;
         }
@@ -99,15 +103,15 @@ export function snapElementToOthers(
       for (const c2 of otherCorners) {
         const cp = closestPointOnSegmentLocal(c2, edge.p, edge.q);
         const d = distance(cp, c2);
-        if (d < bestDist) {
-          bestDist = d;
+        if (d < bestScore) {
+          bestScore = d;
           bestDx = c2.x - cp.x;
           bestDy = c2.y - cp.y;
         }
       }
     }
 
-    // 4️⃣ حافة ↔ حافة (توازي / استقامة) ✅ جديد
+    // 4️⃣ حافة ↔ حافة (توازي / استقامة)
     for (const e1 of edges) {
       const dir1x = e1.q.x - e1.p.x;
       const dir1y = e1.q.y - e1.p.y;
@@ -124,11 +128,9 @@ export function snapElementToOthers(
         const u2x = dir2x / len2;
         const u2y = dir2y / len2;
 
-        // فحص التوازي
         const cross = u1x * u2y - u1y * u2x;
         if (Math.abs(cross) > 0.1) continue;
 
-        // المسافة العمودية من منتصف e1 إلى خط e2
         const midX = (e1.p.x + e1.q.x) / 2;
         const midY = (e1.p.y + e1.q.y) / 2;
         const nx = -u2y;
@@ -136,8 +138,8 @@ export function snapElementToOthers(
         const d = (midX - e2.p.x) * nx + (midY - e2.p.y) * ny;
         const absD = Math.abs(d);
 
-        if (absD < bestDist && absD > 1e-6) {
-          bestDist = absD;
+        if (absD < bestScore && absD > 1e-6) {
+          bestScore = absD;
           bestDx = -d * nx;
           bestDy = -d * ny;
         }
@@ -145,13 +147,13 @@ export function snapElementToOthers(
     }
   }
 
-  if (bestDist < tolerance) {
+  if (bestScore < tolerance) {
     return { ...el, position: { x: el.position.x + bestDx, y: el.position.y + bestDy } };
   }
   return el;
 }
 
-// ✅ Snap مع الجدران — أي زاوية من العنصر تلتصق بأي نقطة على أي جدار
+// ✅ Snap مع الجدران — كلا الوجهين (خارجي + داخلي)
 export function snapElementToWalls(
   el: StairElement,
   walls: Wall[],
@@ -166,12 +168,34 @@ export function snapElementToWalls(
 
   for (const corner of corners) {
     for (const wall of walls) {
-      const cp = closestPointOnSegmentLocal(corner, wall.start, wall.end);
-      const d = distance(corner, cp);
-      if (d < bestDist && d > 1e-6) {
-        bestDist = d;
-        bestDx = cp.x - corner.x;
-        bestDy = cp.y - corner.y;
+      // ✅ الوجه الخارجي (start → end)
+      const cpOuter = closestPointOnSegmentLocal(corner, wall.start, wall.end);
+      const dOuter = distance(corner, cpOuter);
+
+      // ✅ الوجه الداخلي (start/end + إزاحة السماكة)
+      const wdx = wall.end.x - wall.start.x;
+      const wdy = wall.end.y - wall.start.y;
+      const wlen = Math.hypot(wdx, wdy) || 1;
+      const wnx = -wdy / wlen;
+      const wny = wdx / wlen;
+      const sign = wall.normalSign ?? 1;
+      const offX = wnx * wall.thickness * sign;
+      const offY = wny * wall.thickness * sign;
+      const innerA = { x: wall.start.x + offX, y: wall.start.y + offY };
+      const innerB = { x: wall.end.x + offX, y: wall.end.y + offY };
+      const cpInner = closestPointOnSegmentLocal(corner, innerA, innerB);
+      const dInner = distance(corner, cpInner);
+
+      // اختر الأقرب من الوجهين
+      if (dOuter < bestDist && dOuter > 1e-6) {
+        bestDist = dOuter;
+        bestDx = cpOuter.x - corner.x;
+        bestDy = cpOuter.y - corner.y;
+      }
+      if (dInner < bestDist && dInner > 1e-6) {
+        bestDist = dInner;
+        bestDx = cpInner.x - corner.x;
+        bestDy = cpInner.y - corner.y;
       }
     }
   }
@@ -196,4 +220,4 @@ export function getStepCount(el: StairElement): number {
   if (el.type !== 'step') return 0;
   const td = el.treadDepth ?? 0.27;
   return Math.max(2, Math.floor(el.length / td));
-}
+      }
