@@ -42,7 +42,26 @@ export function useCanvasSetup({
   const containerRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 800, h: 450 });
   const { view, setZoom, pan, setView, reset } = useCanvasState();
-  const drawing = useDrawing(walls, axes, (w) => onWallsChange([...walls, w]));
+const drawing = useDrawing(walls, axes, (w) => {
+  // ✅ عند إضافة الجدار الثاني: صحّح اتجاه الجدار الأول تلقائياً
+  if (walls.length === 1) {
+    const w1 = walls[0];
+    const d1x = w1.end.x - w1.start.x;
+    const d1y = w1.end.y - w1.start.y;
+    const d2x = w.end.x - w.start.x;
+    const d2y = w.end.y - w.start.y;
+    const cross = d1x * d2y - d1y * d2x;
+    // cross < 0 → الرسم باتجاه CW → sign = -1
+    // cross > 0 → الرسم باتجاه CCW → sign = +1
+    const correctSign: 1 | -1 = cross < 0 ? -1 : 1;
+    const fixedW1 = (w1.normalSign ?? 1) !== correctSign
+      ? { ...w1, normalSign: correctSign }
+      : w1;
+    onWallsChange([fixedW1, w]);
+  } else {
+    onWallsChange([...walls, w]);
+  }
+});
 const edit = useWallEditor(walls, onWallsChange as any, axes);
   const dimensionMode = useDimensionMode(walls, axes, onAddDimension);
   const dimensionEdit = useDimensionEdit(dimensions, walls, axes, onDimensionsChange);
