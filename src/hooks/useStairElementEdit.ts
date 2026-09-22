@@ -17,8 +17,7 @@ export function useStairElementEdit() {
   const originalRef = useRef<StairElement | null>(null);
 
   const hitTest = useCallback((pt: Point, el: StairElement): StairElementDragMode => {
-    // ✅ العنصر المقفل لا يُحدَّد
-    if (el.locked) return null;
+  
 
     const corners = getElementCorners(el);
     const topMid = {
@@ -60,11 +59,14 @@ export function useStairElementEdit() {
       walls?: Wall[]
     ) => {
       const original = originalRef.current;
-      const startPt = dragStartRef.current;
-      const mode = dragModeRef.current;
-      if (!original || !startPt || !mode) return;
+const startPt = dragStartRef.current;
+const mode = dragModeRef.current;
+if (!original || !startPt || !mode) return;
 
-      if (mode === 'rotate') {
+// ✅ العنصر المقفل: امنع التحريك والتدوير
+if (original.locked) return;
+
+if (mode === 'rotate') {
         const angle = Math.atan2(pt.y - original.position.y, pt.x - original.position.x);
         const snapped = Math.round(angle / (Math.PI / 2)) * (Math.PI / 2);
         onUpdate(original.id, { rotation: snapped });
