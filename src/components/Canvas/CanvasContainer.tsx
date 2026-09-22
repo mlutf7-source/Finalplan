@@ -78,6 +78,9 @@ export const CanvasContainer: React.FC<Props> = (props) => {
   const setup = useCanvasSetup(props);
   // ✅ رفع الدقة الداخلية مؤقتاً عند تصدير PDF
 const [renderScale, setRenderScale] = useState(1);
+  // ✅ حالات حقل القياس الديناميكي
+const [isEditingLength, setIsEditingLength] = useState(false);
+const [editLengthValue, setEditLengthValue] = useState('');
 
 useEffect(() => {
   const handler = (e: Event) => {
@@ -112,12 +115,69 @@ useEffect(() => {
       {toolActive && (
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 8px' }}>
           <button onClick={() => { drawing.cancel(); props.onModeChange('view'); props.onCancelTool(); }} style={{ padding: '8px 14px', borderRadius: 8, border: '2px solid #f44', background: '#f44', color: '#fff', fontWeight: 700, cursor: 'pointer', fontSize: 14, boxShadow: '0 2px 6px rgba(0,0,0,0.2)' }}>✖ إلغاء الأداة</button>
-          {drawing.lastWallId && props.mode === 'drawing' && (
-            <input type="text" inputMode="decimal" dir="ltr" placeholder="القياس الديناميكي" style={{ width: '130px', padding: '8px', borderRadius: 8, border: '2px solid #06f', fontSize: 14, textAlign: 'center', direction: 'ltr' }} onKeyDown={(e) => { if (e.key === 'Enter') { const val = parseFloat(e.currentTarget.value); if (!isNaN(val)) { const wall = props.walls.find(w => w.id === drawing.lastWallId); if (wall) { const len = Math.hypot(wall.end.x - wall.start.x, wall.end.y - wall.start.y); if (len > 0) { const dirX = (wall.end.x - wall.start.x) / len; const dirY = (wall.end.y - wall.start.y) / len; 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                const newEnd = { x: wall.start.x + dirX * val, y: wall.start.y + dirY * val };
-props.onWallsChange(props.walls.map(w => w.id === wall.id ? { ...w, end: newEnd } : w));
-drawing.updateLastWallEnd(newEnd); } } } } }} />
-          )}
+          {drawing.lastWallId && props.mode === 'drawing' && (() => {
+  // ✅ حساب الطول الحي (المسافة بين tempStart و tempEnd)
+  const liveLength = (drawing.tempStart && drawing.tempEnd)
+    ? Math.hypot(drawing.tempEnd.x - drawing.tempStart.x, drawing.tempEnd.y - drawing.tempStart.y)
+    : 0;
+  const dynamicDisplay = isEditingLength
+    ? editLengthValue
+    : (liveLength > 0.01 ? liveLength.toFixed(2) : '');
+
+  return (
+    <input
+      type="text"
+      inputMode="decimal"
+      dir="ltr"
+      placeholder="القياس الديناميكي"
+      value={dynamicDisplay}
+      onChange={(e) => {
+        setIsEditingLength(true);
+        setEditLengthValue(e.target.value);
+      }}
+      onFocus={(e) => {
+        setEditLengthValue(e.currentTarget.value);
+        setIsEditingLength(true);
+        setTimeout(() => e.currentTarget.select(), 0);
+      }}
+      onBlur={() => {
+        setIsEditingLength(false);
+        setEditLengthValue('');
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          const raw = e.currentTarget.value.replace(',', '.');
+          const val = parseFloat(raw);
+          if (!isNaN(val) && val > 0.01) {
+            const wall = props.walls.find(w => w.id === drawing.lastWallId);
+            if (wall) {
+              const len = Math.hypot(wall.end.x - wall.start.x, wall.end.y - wall.start.y);
+              if (len > 0) {
+                const dirX = (wall.end.x - wall.start.x) / len;
+                const dirY = (wall.end.y - wall.start.y) / len;
+                const newEnd = { x: wall.start.x + dirX * val, y: wall.start.y + dirY * val };
+                props.onWallsChange(props.walls.map(w => w.id === wall.id ? { ...w, end: newEnd } : w));
+                drawing.updateLastWallEnd(newEnd);
+              }
+            }
+          }
+          setIsEditingLength(false);
+          setEditLengthValue('');
+          e.currentTarget.blur();
+        }
+      }}
+      style={{
+        width: '130px',
+        padding: '8px',
+        borderRadius: 8,
+        border: '2px solid #06f',
+        fontSize: 14,
+        textAlign: 'center',
+        direction: 'ltr',
+      }}
+    />
+  );
+})()}
         </div>
       )}
       {!props.frozen && edit.selectedWallId && (<WallProperties wall={edit.selectedWall} onChangeLength={edit.changeLength} onChangeThickness={edit.changeThickness} />)}
